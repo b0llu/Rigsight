@@ -200,7 +200,7 @@ public partial class PeriodPicker : UserControl
     {
         var today = DateTime.Today;
         var (from, to) = ReportBuilder.Bounds(unit, anchor);
-        if (unit == ReportRange.Day) return from.ToString("dddd, d MMMM yyyy");
+        if (unit == ReportRange.Day) return TimeText.At(from, "dddd, d MMMM yyyy");
         var last = to.AddDays(-1) > today ? today : to.AddDays(-1);
         return from.Year == last.Year ? $"{from:d MMM} – {last:d MMM yyyy}" : $"{from:d MMM yyyy} – {last:d MMM yyyy}";
     }

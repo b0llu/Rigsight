@@ -9,15 +9,15 @@ namespace Rigsight.Models;
 /// <summary>A fact about an app: what it is and its figure ("Usual memory", "520 MB"), and what its hover says, if anything.</summary>
 public sealed record ProcFact(string Label, string Value, string? Tip = null);
 
-/// <summary>The stretch the box under an app shows its CPU and memory over.</summary>
-public enum ProcPeriod { Today, Week, Month }
+/// <summary>The stretch the box under an app shows its CPU and memory over: since 1.22.0 also days picked (Custom).</summary>
+public enum ProcPeriod { Today, Week, Month, Custom }
 
 /// <summary>
 /// The box between an app's row and its processes on the Processes page: a slim line of what is on record about it,
 /// which opens into its CPU and its memory as two charts beside every fact there is, over today (hour by hour) or the
 /// last 7 or 30 days (day by day). A fact with nothing recorded is left out.
 /// </summary>
-public sealed partial class ProcHistory : ObservableObject
+public sealed partial class ProcHistory : ObservableObject, Views.IDayRange
 {
     /// <summary>The history is being read: until then the line says only what the running app itself tells.</summary>
     [ObservableProperty] private bool _isLoading = true;
@@ -84,6 +84,52 @@ public sealed partial class ProcHistory : ObservableObject
         if (_row is not null) Fill(_row, _past, DateTime.Now, IsLoading);
     }
 
+    // ── Custom: days picked in the shared calendar (1.22.0) ──
+
+    /// <summary>The first day there is history for (the calendar's first day); null before it's known.</summary>
+    public DateTime? FirstDay { get; set; }
+
+    /// <summary>The days picked, both in it (the last 7 days until some are).</summary>
+    public DateTime CustomFrom { get; private set; } = DateTime.Today.AddDays(-6);
+    public DateTime CustomTo { get; private set; } = DateTime.Today;
+
+    /// <summary>Reads the app over days picked (set by the page with the app's history).</summary>
+    public Func<DateTime, DateTime, Task<AppRange?>>? ReadRange { get; set; }
+
+    // The days picked as read, or null while they're being read.
+    private AppRange? _range;
+    private int _rangeReads;
+
+    /// <summary>Days picked in the calendar: the charts and the period facts follow them, read back as far as the history goes.</summary>
+    public void PickCustom(DateTime a, DateTime b)
+    {
+        (CustomFrom, CustomTo) = a <= b ? (a.Date, b.Date) : (b.Date, a.Date);
+        _range = null;
+        _ = ReadCustomAsync();
+    }
+
+    private async Task ReadCustomAsync()
+    {
+        int read = ++_rangeReads;
+        bool loading = IsLoading;
+        var before = Period == ProcPeriod.Custom ? ProcPeriod.Today : Period;
+        IsLoading = true;
+        if (Period == ProcPeriod.Custom) OnPropertyChanged(nameof(Period));
+        else Period = ProcPeriod.Custom;
+        AppRange? range = null;
+        try { if (ReadRange is { } reader) range = await reader(CustomFrom, CustomTo); }
+        catch (Exception ex) { Log.Error("processes", ex); }
+        if (read != _rangeReads) return;
+        _range = range;
+        IsLoading = loading;
+        // Nothing could be read (the history couldn't be opened): back to the period it showed.
+        if (range is null) Period = before;
+        else if (_row is not null) Fill(_row, _past, DateTime.Now, loading);
+    }
+
+    /// <summary>The calendar closed without days picked: the segments show the period as it is again.</summary>
+    public void KeepPeriod() => OnPropertyChanged(nameof(Period));
+
     /// <summary>What the running app says by itself, before (or without) anything read from the history.</summary>
     public void Fill(ProcRow row, DateTime now) => Fill(row, null, now, loading: IsLoading);
 
@@ -91,17 +137,26 @@ public sealed partial class ProcHistory : ObservableObject
     {
         _row = row;
         _past = past;
+        // Days just picked, still being read: the box stays as it is under the loader until they come.
+        if (Period == ProcPeriod.Custom && _range is null && past is { Days.Count: > 0 })
+        {
+            IsLoading = true;
+            return;
+        }
         var facts = new List<ProcFact>();
         void Add(string label, string value, string? tip = null) => facts.Add(new(label, value, tip));
 
         if (row.Started > 0) Add(Lang.T("Running since"), Since(TimeUtil.FromUnix(row.Started), now));
         if (past?.UsualMB is { } usual) Add(Lang.T("Usual memory"), Units.Megabytes(usual));
-        if (past is { Days.Count: > 0 } && CpuFact(row, past, Period, now) is { } cpuFact) facts.Add(cpuFact);
-        if (past is not null && EnergyFact(row, Energy, past.Days.Count > 0 ? Period : ProcPeriod.Today) is { } energyFact) facts.Add(energyFact);
+        bool custom = Period == ProcPeriod.Custom && past is { Days.Count: > 0 };
+        if (custom) { if (_range is { } r && RangeCpuFact(row, r) is { } rangeFact) facts.Add(rangeFact); }
+        else if (past is { Days.Count: > 0 } && CpuFact(row, past, Period, now) is { } cpuFact) facts.Add(cpuFact);
+        if (!custom && past is not null && EnergyFact(row, Energy, past.Days.Count > 0 ? Period : ProcPeriod.Today) is { } energyFact) facts.Add(energyFact);
         if (past?.FrontSec is { } front) Add(Lang.T("In front today"), Time(front));
         if (past?.BackSec is { } back) Add(Lang.T("In the background today"), Time(back));
         if (past?.NetBytes is { } net) Add(Lang.T("Internet today"), Units.Data(net));
-        if (past is not null) Add(Lang.T("Crashes (30 days)"), past.Crashes == 0 ? Lang.T("None") : past.Crashes.ToString(CultureInfo.CurrentCulture));
+        if (custom && _range is { } picked) Add(Lang.T($"Crashes, {RangeWords(picked.From, picked.To)}"), picked.Crashes == 0 ? Lang.T("None") : picked.Crashes.ToString(CultureInfo.CurrentCulture));
+        else if (past is not null && !custom) Add(Lang.T("Crashes (30 days)"), past.Crashes == 0 ? Lang.T("None") : past.Crashes.ToString(CultureInfo.CurrentCulture));
 
         // The hour now is what the app holds at this moment, as the list above says it.
         var hours = past?.Hours.ToList() ?? [];
@@ -114,7 +169,12 @@ public sealed partial class ProcHistory : ObservableObject
         var period = HasCpu ? Period : ProcPeriod.Today;
         IsDays = period != ProcPeriod.Today;
 
-        if (!IsDays)
+        if (period == ProcPeriod.Custom)
+        {
+            // While the days picked are read, the charts stay as they were under the loader.
+            if (_range is { } range) FillRange(range, now);
+        }
+        else if (!IsDays)
         {
             MemValues = Kept.Or(MemValues, hours);
             MemTips = null;
@@ -160,6 +220,95 @@ public sealed partial class ProcHistory : ObservableObject
         }
         IsLoading = loading;
         if (past is not null) ReadAt = now;
+    }
+
+    /// <summary>
+    /// Days picked (Custom): bars by the hour, day or month (see <see cref="AppRange.StepOf"/>), captions naming the days
+    /// ("CPU TIME, THU 12 NOV – WED 18 NOV"), the dashed line its usual over the same length of time before.
+    /// </summary>
+    private void FillRange(AppRange range, DateTime now)
+    {
+        var points = range.Points;
+        MemValues = Kept.Or(MemValues, points.Select(p => p.Recorded ? p.MemMb ?? 0 : (double?)null).ToList());
+        MemTips = [.. points.Select(p => PointTip(p, range.Step, p.MemMb is { } mb ? Lang.T($"{PointName(p.Start, range.Step)}, {Units.Megabytes(mb)} on average") : null))];
+        MemUsual = range.MemUsualMb;
+        HasChart = range.AnyRecorded;
+        CpuValues = Kept.Or(CpuValues, points.Select(p => p.Recorded ? p.CpuMs / 1000.0 : (double?)null).ToList());
+        CpuTips = [.. points.Select(p => PointTip(p, range.Step, p.CpuMs > 0 ? Lang.T($"{PointName(p.Start, range.Step)}, {CpuTime(p.CpuMs / 1000.0)} of CPU time") : null))];
+        CpuUsual = range.CpuUsualMs is double ms ? ms / 1000.0 : null;
+        HasCpuChart = HasChart;
+        (CpuNow, MemNow) = ("", "");
+        string name = RangeCaption(range.From, range.To);
+        CpuCaption = Lang.T($"CPU TIME, {name}");
+        MemCaption = Lang.T($"MEMORY, {name}");
+        (AxisFrom, AxisTo) = Axis(range.From, range.To, range.Step, now);
+    }
+
+    /// <summary>
+    /// The days picked as a chart's caption names them, in capitals as captions are: "THU 12 NOV – WED 18 NOV", one day
+    /// alone "THU 12 NOV", with the year when it isn't this one (as Report.CustomTitle).
+    /// </summary>
+    internal static string RangeCaption(DateTime from, DateTime to)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        bool years = from.Year != DateTime.Today.Year || to.Year != DateTime.Today.Year;
+        string Day(DateTime d) => d.ToString(TimeText.Fit(years ? "ddd d MMM yyyy" : "ddd d MMM"), culture);
+        return (from.Date == to.Date ? Day(from) : $"{Day(from)} – {Day(to)}").ToUpper(culture);
+    }
+
+    /// <summary>The days picked as a fact says them: "12 Nov to 18 Nov", one day alone "12 Nov" (with the year when it isn't this one).</summary>
+    internal static string RangeWords(DateTime from, DateTime to)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        bool years = from.Year != DateTime.Today.Year || to.Year != DateTime.Today.Year;
+        string Day(DateTime d) => d.ToString(years ? "d MMM yyyy" : "d MMM", culture);
+        return from.Date == to.Date ? Day(from) : Lang.T($"{Day(from)} to {Day(to)}");
+    }
+
+    /// <summary>The words under the charts: the first bar's and the last's ("Thu 12 Nov" and "Today", "Nov 2025" and "Today").</summary>
+    internal static (string From, string To) Axis(DateTime from, DateTime to, AppRangeStep step, DateTime now)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        string fmt = step == AppRangeStep.Months ? TimeText.Fit("MMM yyyy") : TimeText.Fit("ddd d MMM");
+        string first = from.ToString(fmt, culture);
+        string last = to.Date == now.Date ? Lang.T("Today") : to.ToString(fmt, culture);
+        return (first, last);
+    }
+
+    /// <summary>A bar's name in its hover: "Thu 12 Nov, 2 PM" (an hour), "Thu 12 Nov" (a day), "November 2025" (a month).</summary>
+    internal static string PointName(DateTime start, AppRangeStep step)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        return step switch
+        {
+            AppRangeStep.Hours => $"{start.ToString(TimeText.Fit("ddd d MMM"), culture)}, {start.ToString(TimeText.Fit("h tt"), culture)}",
+            AppRangeStep.Days => start.ToString(TimeText.Fit("ddd d MMM"), culture),
+            _ => TimeText.At(start, "MMMM yyyy", culture),
+        };
+    }
+
+    /// <summary>A bar's hover: what it did, or that it didn't run, or that nothing was recorded then.</summary>
+    private static string PointTip(AppRangePoint point, AppRangeStep step, string? did) =>
+        !point.Recorded ? Lang.T($"{PointName(point.Start, step)}, not recorded")
+        : did ?? Lang.T($"{PointName(point.Start, step)}, not running");
+
+    /// <summary>"CPU time, 12 Nov to 18 Nov 1h 05m", its hover saying what that means for this PC, as the other periods'.</summary>
+    internal static ProcFact? RangeCpuFact(ProcRow row, AppRange range)
+    {
+        if (!range.AnyRecorded) return null;
+        double cpuSec = range.CpuMs / 1000.0;
+        string time = CpuTime(cpuSec), name = row.Name, words = RangeWords(range.From, range.To);
+        string span = range.From == range.To ? Lang.T($"on {words}") : Lang.T($"from {words}");
+        string said = row.Count > 1
+            ? Lang.T($"All of {name}'s {row.Count} processes together kept one CPU core busy for {time} {span}.")
+            : Lang.T($"{name} kept one CPU core busy for {time} {span}.");
+        if (range.RunSec > 0)
+        {
+            int threads = Environment.ProcessorCount;
+            string pct = AppLoad.Pct(cpuSec / (range.RunSec * threads) * 100);
+            said += " " + Lang.T($"Your CPU has {threads} threads, so that's {pct}% of what it could do in that time.");
+        }
+        return new ProcFact(Lang.T($"CPU time, {words}"), time, said);
     }
 
     /// <summary>

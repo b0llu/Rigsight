@@ -16,7 +16,13 @@ public sealed record LatencyDriver(string Driver, DriverPart? Part, int LongestU
 /// Null figures were not recorded (the PC off, before the trace started, or no admin rights).
 /// </summary>
 /// <param name="Lost">Windows dropped some driver readings in it: a longer call then could be missing.</param>
-public sealed record LatencySlot(DateTime Start, DateTime End, int? LongestUs, string Driver, int Long, bool Lost, int? WakeUs, int? WakeMedianUs);
+/// <param name="Others">Since 1.22.0, for its hover: the other drivers busy in it with their longest, longest first (null: not read, the game views).</param>
+/// <param name="Game">Since 1.22.0: the game in front for most of it (null: none).</param>
+public sealed record LatencySlot(DateTime Start, DateTime End, int? LongestUs, string Driver, int Long, bool Lost, int? WakeUs, int? WakeMedianUs,
+    IReadOnlyList<LatencySlotDriver>? Others = null, long? Game = null);
+
+/// <summary>A driver busy in a slot, and its longest call then (µs).</summary>
+public sealed record LatencySlotDriver(string Driver, int Us);
 
 /// <summary>The wake-up check over the period: checks made, the middle of its minutes' middles, the longest, and checks of 1 ms or more.</summary>
 public sealed record LatencyWake(long Checks, int MedianUs, int HighestUs, int OverMs);
@@ -38,6 +44,9 @@ public sealed record LatencyReport(DateTime From, DateTime To, LatencyFilter Fil
     public int Long => Drivers.Sum(d => d.Long);
 
     /// <summary>Days of driver history up to the period's end (the usual needs <see cref="DriverRules.UsualDays"/>).</summary>
+    /// <summary>The first hour the app wake-up check was recorded (Unix seconds): before it, its chart has nothing to show yet.</summary>
+    public long? FirstWakeHour { get; init; }
+
     public int HistoryDays => FirstDriverHour is long first ? Math.Max(0, (int)Math.Floor((TimeUtil.ToUnix(To) - first) / 86400.0)) : 0;
 
     /// <summary>Too soon for a usual: under <see cref="DriverRules.UsualDays"/> days of driver history.</summary>
@@ -56,9 +65,10 @@ public sealed record LatencyReport(DateTime From, DateTime To, LatencyFilter Fil
         // The drivers: hours for everything (every driver, every hour), kept minutes for the game views.
         List<DriverTally> totals;
         List<(long Hour, int Us, string Driver, int Long)> hours;
+        List<DriverTally>? hourRows = null;
         if (filter == LatencyFilter.All)
         {
-            var rows = db.GetDriverHours(f, t);
+            var rows = hourRows = db.GetDriverHours(f, t);
             totals = [.. rows.GroupBy(r => r.Driver, StringComparer.OrdinalIgnoreCase).Select(g =>
                 new DriverTally(0, g.Key, g.Sum(r => r.Count), g.Sum(r => r.TotalUs), g.Max(r => r.LongestUs), g.Sum(r => r.Long)))];
             hours = [.. rows.GroupBy(r => r.Ts).OrderBy(g => g.Key).Select(g =>
@@ -104,8 +114,8 @@ public sealed record LatencyReport(DateTime From, DateTime To, LatencyFilter Fil
             wakeRows.Max(w => w.HighestUs), wakeRows.Sum(w => w.OverMs));
 
         var lost = db.GetDriverMissed(f, t).Order().ToList();
-        var slots = BuildSlots(from, to, hourly, hours, wakeRows, lost);
-        return new LatencyReport(from, to, filter, db.FirstDriverHour(), longest, longestApp, drivers, slots, wake, lost, db.FirstSplitHour());
+        var slots = WithHover(BuildSlots(from, to, hourly, hours, wakeRows, lost), hourRows, db.GetFrontApps(f, t), games);
+        return new LatencyReport(from, to, filter, db.FirstDriverHour(), longest, longestApp, drivers, slots, wake, lost, db.FirstSplitHour()) { FirstWakeHour = db.FirstWakeHour() };
     }
 
     // The wake-up minutes with a game in front, or the others.
@@ -115,6 +125,46 @@ public sealed record LatencyReport(DateTime From, DateTime To, LatencyFilter Fil
         var front = db.GetFrontApps(f, t);
         var gameSet = games as IReadOnlySet<long> ?? games.ToHashSet();
         return [.. minutes.Where(m => (front.TryGetValue(m.Ts, out long app) && gameSet.Contains(app)) == inGames)];
+    }
+
+    /// <summary>
+    /// What each slot's hover says beyond its own figures (1.22.0): the other drivers busy in it with their longest (from
+    /// every driver's hours; none in the game views, which keep only the longest), and the game in front for most of it.
+    /// </summary>
+    public static List<LatencySlot> WithHover(List<LatencySlot> slots, IReadOnlyList<DriverTally>? hourRows, IReadOnlyDictionary<long, long> front,
+        IReadOnlyCollection<long> games)
+    {
+        if (slots.Count == 0) return slots;
+        var gameSet = games as IReadOnlySet<long> ?? games.ToHashSet();
+        var minutes = front.Where(m => gameSet.Contains(m.Value)).OrderBy(m => m.Key).ToList();
+        var rows = hourRows?.OrderBy(r => r.Ts).ToList();
+        int ri = 0, mi = 0;
+        var result = new List<LatencySlot>(slots.Count);
+        foreach (var slot in slots)
+        {
+            long s = TimeUtil.ToUnix(slot.Start), e = TimeUtil.ToUnix(slot.End);
+            List<LatencySlotDriver>? others = null;
+            if (rows is not null)
+            {
+                var longest = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                while (ri < rows.Count && rows[ri].Ts < e)
+                {
+                    var r = rows[ri++];
+                    if (r.Ts < s || r.Driver.Equals(slot.Driver, StringComparison.OrdinalIgnoreCase)) continue;
+                    longest[r.Driver] = Math.Max(longest.GetValueOrDefault(r.Driver), r.LongestUs);
+                }
+                others = [.. longest.Where(kv => kv.Value > 0).OrderByDescending(kv => kv.Value).Select(kv => new LatencySlotDriver(kv.Key, kv.Value))];
+            }
+            var count = new Dictionary<long, int>();
+            while (mi < minutes.Count && minutes[mi].Key < e)
+            {
+                var m = minutes[mi++];
+                if (m.Key >= s) count[m.Value] = count.GetValueOrDefault(m.Value) + 1;
+            }
+            long? game = count.Count == 0 ? null : count.MaxBy(kv => kv.Value).Key;
+            result.Add(slot with { Others = others, Game = game });
+        }
+        return result;
     }
 
     /// <summary>Every slot of the period, an hour (or a day) at a time, the ones with nothing recorded left empty.</summary>

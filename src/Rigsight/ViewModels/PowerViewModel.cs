@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Controls;
@@ -263,6 +264,9 @@ public sealed partial class PowerViewModel : ObservableObject
         var slots = new List<PowerSlot>();
         var byStart = r.Buckets.ToDictionary(b => TimeUtil.FromUnix(b.Start));
         var price = Price();
+        var paths = _page?.Paths ?? new Dictionary<long, string?>();
+        var games = r.Apps.Where(a => a.IsGame).Select(a => a.App).ToHashSet();
+        if (r.Step == PowerStep.Day) IconCache.Warm(r.Buckets.SelectMany(b => b.Apps ?? []).Select(a => paths.GetValueOrDefault(a.App)).Distinct());
         IEnumerable<DateTime> starts = r.Step switch
         {
             PowerStep.Hour => Enumerable.Range(0, (int)Math.Ceiling((r.To - r.From).TotalHours)).Select(h => r.From.AddHours(h)),
@@ -294,7 +298,7 @@ public sealed partial class PowerViewModel : ObservableObject
             string title = r.Step switch
             {
                 PowerStep.Hour => r.Period == PowerPeriod.Day ? TimeText.At(at, "h tt") : TimeText.At(at, "ddd d MMM, h tt"),
-                PowerStep.Month => at.ToString("MMMM yyyy", CultureInfo.CurrentCulture),
+                PowerStep.Month => TimeText.At(at, "MMMM yyyy"),
                 _ => at.ToString("ddd d MMM", CultureInfo.CurrentCulture),
             };
             var lines = new List<string>();
@@ -319,9 +323,47 @@ public sealed partial class PowerViewModel : ObservableObject
                 if (price is var (perKwh, code)) lines.Add(Lang.T($"About {Money.Format(b.Wh / 1000 * perKwh, code)}"));
                 if (b.TopApp is long app && name(app).Length > 0) lines.Add(Lang.T($"Most of it with {name(app)} in front"));
             }
-            slots.Add(new PowerSlot(axis, title, cpu, gpu, lines));
+            // A day's own hover (1.22.0): its parts, its usual weekday, its cost and the apps in front with their icons.
+            Func<RichTip>? rich = r.Step == PowerStep.Day && b is { Minutes: > 0 } day ? () => DayTip(r, day, at, name, paths, games, Price()) : null;
+            slots.Add(new PowerSlot(axis, title, cpu, gpu, lines, rich));
         }
         return slots;
+    }
+
+    /// <summary>
+    /// A day's hover (the approved mock-up's Energy each day): the day and its time in games, its energy big, the CPU and
+    /// the GPU in their colours with their share of the day, against the usual for its weekday, its estimated cost, and
+    /// the apps in front with their own icons. No click line: a click on a day opens nothing.
+    /// </summary>
+    private static RichTip DayTip(PowerReport r, PowerBucket b, DateTime day, Func<long, string> name, IReadOnlyDictionary<long, string?> paths,
+        IReadOnlySet<long> games, (double PerKwh, string Code)? price)
+    {
+        var f = PowerDayHover.Of(b, day, r.DayUsualWh.TryGetValue(day.Date, out double usual) ? usual : null, DateTime.Now, games, price);
+        Brush cpu = ChartPaint.CpuBrush, gpu = ChartPaint.Brush(ChartPaint.Gpu);
+        var split = new List<(Brush, double)>();
+        var rows = new List<RichRow>();
+        if (f.Cpu is { } c) { split.Add((cpu, c.Wh)); rows.Add(new RichRow(cpu, "CPU", PowerReport.Kwh(c.Wh), Lang.T($"{c.Percent}% of the day"))); }
+        if (f.Gpu is { } g) { split.Add((gpu, g.Wh)); rows.Add(new RichRow(gpu, "GPU", PowerReport.Kwh(g.Wh), Lang.T($"{g.Percent}% of the day"))); }
+        var facts = new List<RichFact>();
+        if (f.AgainstLabel is { } label && f.Against is { } against) facts.Add(new RichFact(label, against));
+        if (f.Cost is { } cost) facts.Add(new RichFact(Lang.T("Estimated cost"), cost));
+        var apps = f.Apps.Where(a => name(a.App).Length > 0).Select(a =>
+        {
+            string n = name(a.App);
+            var icon = IconCache.Get(paths.GetValueOrDefault(a.App)) is { } img ? new RichIcon(Image: img) : new RichIcon(Letter: n[..1].ToUpperInvariant());
+            return new RichItem(icon, n, PowerReport.Kwh(a.Wh));
+        }).ToList();
+        return new RichTip(f.Title)
+        {
+            Sub = f.Sub,
+            Big = f.Big,
+            BigWord = f.BigWord,
+            Split = split.Count > 1 ? split : [],
+            Rows = rows,
+            Facts = facts,
+            // The day's own energy in each app's time in front, not what the app drew: said in the heading, as the Apps list's note says it.
+            Notes = apps.Count > 0 ? [new RichNote(Lang.T("While each was in front"), apps)] : [],
+        };
     }
 
     // ── The electricity price (one price a kWh, for every hour and every day shown) ──

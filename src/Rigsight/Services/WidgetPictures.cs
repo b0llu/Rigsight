@@ -33,7 +33,7 @@ public static class WidgetPictures
             [OverlayMetric.GpuLoad] = Recent(live.GpuLoad), [OverlayMetric.Ram] = Recent(live.RamLoad),
         };
         // By the name the agent gives them on the desktop: a person's own, else the sensor's in the language in use.
-        foreach (var s in live.AllSensors) d.Readings[s.Id] = new OverlaySensorReading(s.DisplayName, s.Kind, s.Value);
+        foreach (var s in live.AllSensors) d.Readings[s.Id] = new OverlaySensorReading(s.DisplayName, s.Kind, s.Value, s.Charge);
         foreach (var m in Enum.GetValues<OverlayMetric>())
             if (SensorOf(live, m)?.CustomLabel is { Length: > 0 } name) d.Names[m] = name;
         if (live.Activity is { } a) d.Activity = a;

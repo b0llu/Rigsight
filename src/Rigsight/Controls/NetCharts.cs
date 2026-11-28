@@ -719,7 +719,7 @@ public sealed class NetBarsChart : NetChartBase
 
     internal string Title(DateTime t) => Step < TimeSpan.FromDays(1)
         ? (Unit == ReportRange.Day ? "" : t.ToString("ddd d MMM") + " · ") + $"{TimeText.At(t, "h tt")} – {TimeText.At(t.AddHours(1), "h tt")}"
-        : Months ? t.ToString("MMMM yyyy") : t.ToString("dddd, d MMMM");
+        : Months ? TimeText.At(t, "MMMM yyyy") : t.ToString("dddd, d MMMM");
 }
 
 /// <summary>The connection's speed over the last minute: download as a filled line, upload as a line. Hover a moment for its speeds.</summary>

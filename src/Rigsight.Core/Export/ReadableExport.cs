@@ -161,7 +161,7 @@ public static class ReadableExport
             var said = CrashExplainer.Explain(s.Crash, s.App);
             sb.AppendLine();
             sb.AppendLine(said.Title);
-            sb.AppendLine(TimeUtil.FromUnix(s.Crash.Ts).ToString(TimeText.Fit("dddd, d MMMM yyyy, h:mm tt")));
+            sb.AppendLine(TimeText.At(TimeUtil.FromUnix(s.Crash.Ts), "dddd, d MMMM yyyy, h:mm tt"));
             var rows = new List<(string Label, string? Value)>(s.Found());
             if (s.Context is { NoReadings: false } c)
             {
@@ -393,7 +393,7 @@ public static class ReadableExport
         foreach (var s in stories.OrderByDescending(s => s.Crash.Ts))
         {
             var said = CrashExplainer.Explain(s.Crash, s.App);
-            sb.Append($"<div class=\"crash\"><h3>{H(said.Title)}</h3><div class=\"sub\">{H(TimeUtil.FromUnix(s.Crash.Ts).ToString(TimeText.Fit("dddd, d MMMM yyyy, h:mm tt")))}</div><dl>");
+            sb.Append($"<div class=\"crash\"><h3>{H(said.Title)}</h3><div class=\"sub\">{H(TimeText.At(TimeUtil.FromUnix(s.Crash.Ts), "dddd, d MMMM yyyy, h:mm tt"))}</div><dl>");
             void Row(string label, string? value) { if (!string.IsNullOrWhiteSpace(value)) sb.Append($"<dt>{H(label)}</dt><dd>{H(value)}</dd>"); }
             foreach (var (label, value) in s.Found()) Row(label, value);
             if (s.Context is { NoReadings: false } c)

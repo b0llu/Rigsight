@@ -24,14 +24,17 @@ namespace Rigsight.Agent.Ui;
 /// Shared with the Taskbar page, which draws its preview with the agent's own drawing (linked into the app).
 /// Since 2026-11-20 its part's <paramref name="Icon"/> in place of its word (see TrayParts.IconKey; null: its word), under its
 /// number or beside it (<paramref name="IconBeside"/>); <paramref name="PartIcon"/> its part's icon whatever its Names, for the
-/// Icon style's Its icon look.
+/// Icon style's Its icon look. Since 1.22.0 a wireless device's <paramref name="Charge"/> (a bolt after its number).
 /// </summary>
 internal readonly record struct TrayReading(string Id, string Name, SensorKind Kind, double? Value, TrayPart Part, string Hardware, string Short = "",
     string? NumberColor = null, string? NameColor = null, TrayLook Look = TrayLook.Number, string? TileColor = null, bool OwnShort = false, bool Alone = false,
     TrayStyle Style = TrayStyle.Strip, TraySize Size = TraySize.Auto, string? LookId = null, SensorKind? LookKind = null, double? LookValue = null,
     double? Second = null, float[]? Cores = null, bool? Gray = null, bool? Tiles = null, bool? Letters = null, bool? PairNext = null, bool GraphBehind = false,
-    string? Icon = null, bool IconBeside = false, string? PartIcon = null)
+    string? Icon = null, bool IconBeside = false, string? PartIcon = null, ChargeState Charge = ChargeState.Unknown)
 {
+    /// <summary>The bolt after its number: a wireless device charging or full on power (1.22.0, see DeviceCharge.TileBolt).</summary>
+    public bool Bolt => Kind == SensorKind.Battery && Value is not null && DeviceCharge.TileBolt(Charge);
+
     /// <summary>What its spot depends on (see <see cref="TrayParts.Spots"/>).</summary>
     public TrayParts.SpotOf Spot => new(Id, Group, Kind, Alone, BothSpeeds, PairNext);
 

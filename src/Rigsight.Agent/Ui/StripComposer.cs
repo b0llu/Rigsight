@@ -349,7 +349,7 @@ internal sealed class StripComposer
             for (int j = 0; j < box.Count; j++)
             {
                 var r = box[j];
-                string text = StripText(r, r.Value, o), widest = Widest(r.Id, text);
+                string text = StripText(r, r.Value, o) + (r.Bolt ? WidgetRenderer.BoltMark.ToString() : ""), widest = Widest(r.Id, text);
                 if (r.BothSpeeds)
                 {
                     string up = StripText(r, r.Second, o);
@@ -376,9 +376,10 @@ internal sealed class StripComposer
     /// <summary>A reading on the strip as drawn: its number, its word, its look with what it needs (graph, fill, cores, the upload), its tile.</summary>
     private StripValue Value(TrayReading r, Options o, string label, long now)
     {
-        string text = StripText(r, r.Value, o);
-        string widest = Widest(r.Id, text);
         var look = r.StripLook;
+        // A charging device's bolt after its number (1.22.0); a big number alone on its tile keeps to its digits.
+        string text = StripText(r, r.Value, o) + (r.Bolt && look != TrayLook.Big ? WidgetRenderer.BoltMark.ToString() : "");
+        string widest = Widest(r.Id, text);
         // A graph in its name's colour (its part's, or the one picked; grayscale: the taskbar's text colour).
         var graphColor = o.Gray ? WidgetRenderer.TrayColor(SensorKind.Load, 0, o.Light, gray: true) : r.NameOn(o.Light, o.Gray);
         bool graphed = look is TrayLook.Area or TrayLook.Line or TrayLook.Bars or TrayLook.Spark or TrayLook.Mirror;

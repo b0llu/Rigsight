@@ -218,7 +218,7 @@
                             </StackPanel>
                             <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" />
                         </DockPanel>
-                        <ctl:PowerChart Height="240" Margin="0,14,0,0" Slots="{Binding Slots}" IsLines="{Binding IsDay}" AutomationProperties.Name="{Binding ChartTitle}" />
+                        <ctl:PowerChart Height="310" Margin="0,14,0,0" Slots="{Binding Slots}" IsLines="{Binding IsDay}" AutomationProperties.Name="{Binding ChartTitle}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 

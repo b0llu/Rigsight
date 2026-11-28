@@ -409,7 +409,7 @@ public static class DataExport
     {
         var sb = new StringBuilder();
         // English keeps its own month names whatever the PC's region; another language writes the month in its own words.
-        string when = made.ToString("d MMMM yyyy, HH:mm", Lang.Translating ? CultureInfo.CurrentCulture : Inv);
+        string when = TimeText.At(made, "d MMMM yyyy, HH:mm", Lang.Translating ? CultureInfo.CurrentCulture : Inv);
         sb.AppendLine(Lang.T($"RigSight full copy, made {when} by RigSight {version}."));
         sb.AppendLine();
         // A paragraph at a time, its English line breaks kept (the key holds them).

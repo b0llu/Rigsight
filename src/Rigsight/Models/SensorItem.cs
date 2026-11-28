@@ -93,13 +93,34 @@ public sealed partial class SensorItem : ObservableObject
     /// <summary>For a wireless device's battery: what the device is ("Mouse"...), for its icon on the taskbar.</summary>
     public string? Device { get; init; }
 
+    /// <summary>
+    /// For a wireless device's battery: what the device says about charging (1.22.0), from the agent's tick. Unknown where
+    /// it can't say (Bluetooth, Xbox controllers): nothing is shown then.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsBolt), nameof(ShowsFull), nameof(ChargeTip))]
+    private ChargeState _charge;
+
+    /// <summary>A bolt after the number: the device says it's charging (see <see cref="DeviceCharge.MarkOf"/>).</summary>
+    public bool ShowsBolt => DeviceCharge.MarkOf(Charge, Value) == DeviceCharge.Mark.Bolt;
+
+    /// <summary>"Full" in grey after the number: the device says it's full on power, at 100%.</summary>
+    public bool ShowsFull => DeviceCharge.MarkOf(Charge, Value) == DeviceCharge.Mark.Full;
+
+    /// <summary>What the number's hover says while charging or full ("Charging, 45% now"); null otherwise.</summary>
+    public string? ChargeTip => DeviceCharge.Tip(Charge, Value);
+
+    /// <summary>The word after a full device's number, as the battery's own levels say it.</summary>
+    public static string FullWord => Lang.C("battery", "Full");
+
     /// <summary>What the name says when pointed at: that it can be renamed, and what the part calls it once it has been.</summary>
-    public string NameTip => string.IsNullOrWhiteSpace(CustomLabel) ? Lang.T("Click to rename") : Lang.T($"{SensorWords.Show(Name)}  ·  click to rename");
+    public string NameTip => Lang.T($"{(string.IsNullOrWhiteSpace(CustomLabel) ? DisplayName : SensorWords.Show(Name))}  ·  click to rename");
 
     /// <summary>Two-way bindable name used by the inline rename box. Empty resets to the original name.</summary>
     public string Label
     {
-        get => DisplayName;
+        // A device's battery sits under its device's own heading on All sensors, so its row says "Battery" alone there.
+        get => Kind == SensorKind.Battery && string.IsNullOrWhiteSpace(CustomLabel) ? SensorWords.Show(Name) : DisplayName;
         set
         {
             var trimmed = value?.Trim();
@@ -122,6 +143,10 @@ public sealed partial class SensorItem : ObservableObject
     /// today"), as every range is said, not arrows.
     /// </summary>
     public string MinMaxText => RangeText;
+
+    /// <summary>A device battery card's small grey line (1.22.0): "Lowest 35% · Highest 65% · Average 35%".</summary>
+    public string BatteryStats => Min is double lo && Max is double hi && Average is double avg && Units.BatteryWord(lo) is null
+        ? Lang.T($"Lowest {Units.Short(Kind, lo)} · Highest {Units.Short(Kind, hi)} · Average {Units.Short(Kind, avg)}") : "";
 
     /// <summary>Today's range in words under a tile ("36° to 58° today"); empty before there is one.</summary>
     public string RangeText => Min is double lo && Max is double hi ? Lang.T($"{Units.Compact(Kind, lo)} to {Units.Compact(Kind, hi)} today") : "";
@@ -179,9 +204,20 @@ public sealed partial class SensorItem : ObservableObject
         OnPropertyChanged(nameof(FormattedMax));
         OnPropertyChanged(nameof(FormattedAverage));
         OnPropertyChanged(nameof(MinMaxText));
+        if (Kind == SensorKind.Battery) OnPropertyChanged(nameof(BatteryStats));
         OnPropertyChanged(nameof(RangeText));
         OnPropertyChanged(nameof(RangeShare));
+        if (Kind == SensorKind.Battery) OnPropertyChanged(nameof(BatteryTrend));
         Version++;
+    }
+
+    /// <summary>For a wireless device's battery: what it did in the last 10 minutes ("Steady"), see <see cref="DeviceCharge.Trend"/>.</summary>
+    public string? BatteryTrend => Kind == SensorKind.Battery ? DeviceCharge.Trend(Readings(), History.LastTime) : null;
+
+    private IEnumerable<(long, double)> Readings()
+    {
+        for (int i = History.IndexAtOrAfter(History.LastTime - DeviceCharge.TrendMinutes * 60_000L); i < History.Count; i++)
+            yield return (History.TimeAt(i), History.ValueAt(i));
     }
 
     /// <summary>Today's lowest and highest reading as tracked by the agent (replaces the since-opened range).</summary>
@@ -192,8 +228,18 @@ public sealed partial class SensorItem : ObservableObject
         OnPropertyChanged(nameof(FormattedMin));
         OnPropertyChanged(nameof(FormattedMax));
         OnPropertyChanged(nameof(MinMaxText));
+        if (Kind == SensorKind.Battery) OnPropertyChanged(nameof(BatteryStats));
         OnPropertyChanged(nameof(RangeText));
         OnPropertyChanged(nameof(RangeShare));
+    }
+
+    /// <summary>A charging device's mark follows its number too (a bolt under 100%, "Full" at it).</summary>
+    partial void OnValueChanged(double? value)
+    {
+        if (Charge == ChargeState.Unknown) return;
+        OnPropertyChanged(nameof(ShowsBolt));
+        OnPropertyChanged(nameof(ShowsFull));
+        OnPropertyChanged(nameof(ChargeTip));
     }
 
     /// <summary>Re-evaluates every formatted string (e.g. after switching °C/°F).</summary>

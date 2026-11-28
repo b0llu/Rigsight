@@ -14,17 +14,23 @@ using Rigsight.Services;
 namespace Rigsight.ViewModels;
 
 /// <summary>The Latency page's facts for a period, the Timeline's driver marks in it, and the app in front at its longest.</summary>
-public sealed record LatencyPage(LatencyReport Report, List<DelayStretch> Marks, string? LongestApp);
+/// <param name="Games">Since 1.22.0: the games in front in the chart's hours, their names and paths (for the hover's icon).</param>
+public sealed record LatencyPage(LatencyReport Report, List<DelayStretch> Marks, string? LongestApp,
+    IReadOnlyDictionary<long, (string Name, string? Path)>? Games = null);
 
 /// <summary>What an opened driver shows of the period (see <see cref="ReportService.LatencyDriverAsync"/>).</summary>
 public sealed record LatencyDriverData(List<DriverTally> Hours, (long Minute, int Us, string Driver)? Longest, DriverSplit? Split,
     List<Core.Stability.SystemChange> Changes, int? UsualUs, long? FirstSplitHour);
 
 /// <summary>A line of the summary beside the longest delay: an icon, the statement, amber when it needs a look, grey when it's only context.</summary>
-public sealed record LatencyLine(string Icon, string Text, bool Warm = false, bool Quiet = false, string IconBrush = "MutedBrush");
+/// <param name="IconBack">Its square's colour (1.22.0: the green check's soft green); the usual grey square when null.</param>
+public sealed record LatencyLine(string Icon, string Text, bool Warm = false, bool Quiet = false, string IconBrush = "MutedBrush", string IconBack = "Surface2Brush");
 
 /// <summary>A driver in the list: who, its file, its longest, its calls over 1 ms, its time in all, its usual longest.</summary>
-public sealed record LatencyDriverRow(string Driver, string Icon, string Who, string File, string Longest, string Over, bool HasOver, string Busy, string Usual, string Tip);
+/// <param name="IconBrush">Since 1.22.0 its icon's colour and its square's (<paramref name="IconBack"/>), by its kind (see <see cref="LatencyViewModel.KindTint"/>),
+/// and its longest as a share of the period's longest (<paramref name="Share"/>, its bar).</param>
+public sealed record LatencyDriverRow(string Driver, string Icon, string Who, string File, string Longest, string Over, bool HasOver, string Busy, string Usual, string Tip,
+    string IconBrush = "MutedBrush", string IconBack = "Surface2Brush", double Share = 0);
 
 /// <summary>A line of What stood out: a driver mark (opens the driver here) or an update's before and after (opens it on Timeline).</summary>
 public sealed record LatencyMarkRow(string Icon, string Title, string Detail, string When, DelayStretch? Mark, DateTime? ResultDay);
@@ -92,7 +98,7 @@ public sealed partial class LatencyViewModel : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowLoading), nameof(ShowPage), nameof(ShowNoAdmin), nameof(ShowDrivers), nameof(ShowNothing))] private bool _loaded;
 
     /// <summary>The agent runs without admin rights: Windows gives it no driver timings (set by the shell).</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowNoAdmin), nameof(ShowDrivers), nameof(ShowNothing))] private bool _noAdmin;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowNoAdmin), nameof(ShowDrivers), nameof(ShowNothing), nameof(WakeOffText))] private bool _noAdmin;
 
     public bool ShowLoading => !Loaded;
     public bool ShowPage => Loaded;
@@ -102,6 +108,14 @@ public sealed partial class LatencyViewModel : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowNoAdmin), nameof(ShowDrivers), nameof(ShowNothing))] private bool _hasDrivers;
     /// <summary>Admin rights, but nothing recorded in the period (before the trace started, or the PC off).</summary>
     public bool ShowNothing => Loaded && !NoAdmin && !HasDrivers;
+
+    /// <summary>The sidebar's "Restart with admin", offered on the no-admin card (set by the shell).</summary>
+    public System.Windows.Input.ICommand? RestartWithAdmin { get; init; }
+
+    /// <summary>Whether this account can give admin rights (a standard account can't, so no button there).</summary>
+    public Func<bool>? CanRestartAdmin { get; init; }
+
+    public bool ShowRestartAdmin => RestartWithAdmin is not null && (CanRestartAdmin?.Invoke() ?? true);
 
     private LatencyPage? _page;
     private int _load;
@@ -154,7 +168,7 @@ public sealed partial class LatencyViewModel : ObservableObject
     [ObservableProperty] private string _wakeHow = LatencyWords.HowItRuns(8);
     [ObservableProperty] private bool _hasLive;
 
-    public string WakeOffText => LatencyWords.Off;
+    public string WakeOffText => NoAdmin ? LatencyWords.OffNoAdmin : LatencyWords.Off;
 
     /// <summary>The app wake-up check runs (its setting; the switch on the page).</summary>
     public bool WakeOn
@@ -192,12 +206,18 @@ public sealed partial class LatencyViewModel : ObservableObject
 
         if (live.Drivers)
         {
+            // Seconds are paired by the clock (an even second and the one after), not by their place in the 2 minutes: paired
+            // by place, every new second moved each pair along one, and two bars side by side merged into one as it came in.
             var bars = new List<LiveBar>();
-            for (int i = n % 2; i + 1 < n + 1; i += 2)
+            for (int i = 0; i < n;)
             {
-                int a = live.DriverUs[i], b = i + 1 < n ? live.DriverUs[i + 1] : 0;
-                int j = b > a ? i + 1 : i;
-                int us = Math.Max(a, b);
+                int j = i, us = live.DriverUs[i], next = i + 1;
+                if (next < n && live.Seconds[next] / 2 == live.Seconds[i] / 2)
+                {
+                    if (live.DriverUs[next] > us) (j, us) = (next, live.DriverUs[next]);
+                    next++;
+                }
+                i = next;
                 string at = TimeText.At(TimeUtil.FromUnix(live.Seconds[j]), "h:mm:ss tt");
                 bars.Add(new LiveBar(us, us >= DriverRules.LongUs,
                     us == 0 ? $"{at}\n{Lang.T("No driver call")}" : $"{at}\n{LatencyWords.Ms(us)}, {LatencyWords.Who(live.Driver[j], parts.GetValueOrDefault(live.Driver[j]))}"));
@@ -301,9 +321,11 @@ public sealed partial class LatencyViewModel : ObservableObject
         var most = r.Drivers.MaxBy(d => d.Long);
         lines.Add(new("", LatencyWords.OverLine(r.Long, most)));
         if (r.TooSoon) lines.Add(new("", LatencyWords.TooSoon(r.HistoryDays)));
-        if (r.Wake is { } w && WakeOn) lines.Add(new("", LatencyWords.WakeLine(w), IconBrush: "PurpleBrush"));
+        if (r.Wake is { } w && WakeOn) lines.Add(new("", LatencyWords.WakeLine(w)));
         if (LatencyWords.LostLine(r.LostMinutes) is { } lost) lines.Add(new("", lost, Warm: true, IconBrush: "WarmBrush"));
-        else if (r.FirstDriverHour is long first) lines.Add(new("", first > TimeUtil.ToUnix(r.From) ? LatencyWords.Recording(TimeUtil.FromUnix(first)) : LatencyWords.NothingDropped, Quiet: true));
+        // Nothing dropped: the one coloured sentence icon, a green check (the approved mock-up, 1.22.0).
+        else if (r.FirstDriverHour is long first) lines.Add(new("", first > TimeUtil.ToUnix(r.From) ? LatencyWords.Recording(TimeUtil.FromUnix(first)) : LatencyWords.NothingDropped, Quiet: true,
+            IconBrush: "GoodBrush", IconBack: "GoodSoftBrush"));
         Lines = lines;
 
         FillChart(r);
@@ -311,12 +333,22 @@ public sealed partial class LatencyViewModel : ObservableObject
         _ = FillMarksAsync(page);
     }
 
+    /// <summary>When the chart's figures were first recorded (the wake-up check began later than the drivers): before it, "not recorded yet".</summary>
+    [ObservableProperty] private DateTime? _chartRecordedFrom;
+    /// <summary>When driver activity was first recorded, for an opened driver's chart.</summary>
+    [ObservableProperty] private DateTime? _driverRecordedFrom;
+
     private void FillChart(LatencyReport r)
     {
+        long? first = Metric == ChartMetric.Wake ? r.FirstWakeHour : r.FirstDriverHour;
+        ChartRecordedFrom = first is long f ? TimeUtil.FromUnix(f) : null;
+        DriverRecordedFrom = r.FirstDriverHour is long d ? TimeUtil.FromUnix(d) : null;
         bool hourly = (r.To - r.From).TotalDays <= LatencyReport.HourlyDays;
         ChartIsMs = Metric != ChartMetric.Over;
         ChartShowsGuidance = Metric == ChartMetric.Driver;
-        ChartBrush = Metric == ChartMetric.Wake ? "PurpleBrush" : "TextBrush";
+        // One blue for the drivers (brighter over 1 ms), the wake-up check's violet for its own (1.22.0).
+        ChartBrush = Metric == ChartMetric.Wake ? "PurpleBrush" : "CpuBrush";
+        ShowLegend = Metric == ChartMetric.Driver;
         ChartTitle = (Metric, hourly) switch
         {
             (ChartMetric.Driver, true) => Lang.T("Longest driver delay each hour"),
@@ -354,10 +386,72 @@ public sealed partial class LatencyViewModel : ObservableObject
             // Dropped readings are the driver trace's: the wake-up check's figures are whole then.
             bool lost = s.Lost && Metric != ChartMetric.Wake;
             if (lost) tip.Add(Lang.T("Windows dropped some readings in this time, so a longer delay could be missing."));
-            slots.Add(new LatencyChartSlot(axis, title, value, lost, value is double v && Metric != ChartMetric.Over && v >= DriverRules.LongUs, tip, s.Start, s.End));
+            var metric = Metric switch { ChartMetric.Wake => LatencyMetric.Wake, ChartMetric.Over => LatencyMetric.Over, _ => LatencyMetric.Driver };
+            var games = _page?.Games;
+            Func<RichTip>? rich = value is null ? null : () => HourTip(s, hourly, metric, parts, games);
+            slots.Add(new LatencyChartSlot(axis, title, value, lost, value is double v && Metric != ChartMetric.Over && v >= DriverRules.LongUs, tip, s.Start, s.End, rich));
         }
         Slots = slots;
     }
+
+    /// <summary>The chart's legend: Over 1 ms and Under 1 ms, for the driver delays.</summary>
+    [ObservableProperty] private bool _showLegend = true;
+
+    /// <summary>
+    /// An hour's hover (1.22.0, the approved mock-up): the hour, the game in front with its own icon, the chart's figure
+    /// big, who it was (the driver's kind icon, its name and file on one row), its other figures, and the other drivers
+    /// busy then with their longest. No click line: a click on an hour opens nothing.
+    /// </summary>
+    private static RichTip HourTip(LatencySlot s, bool hourly, LatencyMetric metric, IReadOnlyDictionary<string, DriverPart?> parts,
+        IReadOnlyDictionary<long, (string Name, string? Path)>? games)
+    {
+        var f = LatencyHover.Of(s, hourly, metric, d => parts.GetValueOrDefault(d))!;
+        RichIcon? subIcon = null;
+        string sub = Lang.T("No game in front");
+        if (f.Game is long g && games?.GetValueOrDefault(g) is { Name.Length: > 0 } game)
+        {
+            sub = Lang.T($"{game.Name} in front");
+            subIcon = IconCache.Get(game.Path) is { } img ? new RichIcon(Image: img) : new RichIcon(Letter: game.Name[..1].ToUpperInvariant());
+        }
+        var facts = new List<RichFact>();
+        if (f.By is { } by) facts.Add(new RichFact(Lang.T("By"), by.Who, Wide: true, Icon: KindIcon(by), Detail: by.Driver.Length > 0 ? by.Driver : null));
+        facts.AddRange(f.Facts.Select(x => new RichFact(x.Label, x.Value)));
+        var others = f.Others.Select(o => new RichItem(KindIcon(o), o.Who, o.Ms)).ToList();
+        return new RichTip(f.Title)
+        {
+            Sub = sub,
+            SubIcon = subIcon,
+            Big = f.Big,
+            BigWord = f.BigWord,
+            Facts = facts,
+            Notes = others.Count > 0 ? [new RichNote(f.OthersLabel, others)] : [],
+            Mark = f.Lost ? Lang.T("Windows dropped some readings in this time, so a longer delay could be missing.") : null,
+        };
+    }
+
+    /// <summary>A driver's icon in its kind's tint, for a hover.</summary>
+    private static RichIcon KindIcon(LatencyHoverDriver d)
+    {
+        var (ink, back) = KindTint(d.Driver, d.Part);
+        return new RichIcon(Glyph: LatencyWords.Icon(d.Driver, d.Part), Ink: Converters.ResourceBrushConverter.Of(ink), Back: Converters.ResourceBrushConverter.Of(back));
+    }
+
+    /// <summary>
+    /// A driver's kind as a colour (1.22.0, the approved mock-up): graphics the GPU's cyan, network indigo, sound pink,
+    /// storage the CPU's blue, each on its soft wash; the rest grey. The icon's colour and its square's, as palette keys.
+    /// </summary>
+    internal static (string Ink, string Back) KindTint(string file, DriverPart? part) =>
+        part?.Kind == PartKind.Gpu ? ("GpuBrush", "GpuSoftBrush")
+        : part?.Kind is PartKind.Ethernet or PartKind.WiFi ? ("IndigoBrush", "IndigoSoftBrush")
+        : file.Length == 0 ? ("MutedBrush", "Surface2Brush")
+        : DriverWords.AreaOf(file, part) switch
+        {
+            DriverArea.Graphics => ("GpuBrush", "GpuSoftBrush"),
+            DriverArea.Network => ("IndigoBrush", "IndigoSoftBrush"),
+            DriverArea.Sound => ("PinkBrush", "PinkSoftBrush"),
+            DriverArea.Storage => ("CpuBrush", "CpuSoftBrush"),
+            _ => ("MutedBrush", "Surface2Brush"),
+        };
 
     private void FillDrivers(LatencyReport r)
     {
@@ -367,14 +461,16 @@ public sealed partial class LatencyViewModel : ObservableObject
             DriverSort.Busy => r.Drivers.OrderByDescending(d => d.TotalUs),
             _ => r.Drivers.OrderByDescending(d => d.LongestUs),
         };
+        double top = Math.Max(1, r.Drivers.Count == 0 ? 1 : r.Drivers.Max(d => d.LongestUs));
         DriverRows = [.. list.Select(d =>
         {
+            var (ink, back) = KindTint(d.Driver, d.Part);
             string who = LatencyWords.Who(d.Driver, d.Part);
             string usual = d.UsualUs is int u ? LatencyWords.Ms(u) : Lang.T("Too soon to say");
             string busy = d.TotalUs < 1_000_000 ? Lang.T("under 1s") : Units.Duration(d.TotalUs / 1_000_000.0);
             string over = d.Long == 0 ? Lang.T("None") : d.Long.ToString("N0", CultureInfo.CurrentCulture);
             return new LatencyDriverRow(d.Driver, LatencyWords.Icon(d.Driver, d.Part), who, LatencyWords.File(d.Driver, d.Part), LatencyWords.Ms(d.LongestUs), over, d.Long > 0, busy, usual,
-                Lang.T($"{d.Calls:N0} calls in these days, {busy} on the CPU in all."));
+                Lang.T($"{d.Calls:N0} calls in these days, {busy} on the CPU in all."), ink, back, Math.Clamp(d.LongestUs / top, 0.02, 1));
         })];
         DriversNote = r.Drivers.Count == 1 ? Lang.T("1 driver kept a CPU core busy in these days. Click it for its details.")
             : Lang.T($"{r.Drivers.Count} drivers kept a CPU core busy in these days. Click one for its details.");

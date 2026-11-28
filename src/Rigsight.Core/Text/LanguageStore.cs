@@ -71,6 +71,8 @@ public static class LanguageStore
     private static void UseNames(LanguagePack? pack)
     {
         var culture = pack is null ? Region : NamesFor(pack, Region);
+        // The word before a month's name joins month and year too where the pack has one ("noviembre de 2026").
+        TimeText.YearJoin = pack?.MonthPrefix.Trim() ?? "";
         System.Globalization.CultureInfo.CurrentCulture = culture;
         System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture == Region ? null : culture;
     }

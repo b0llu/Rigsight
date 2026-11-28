@@ -2006,7 +2006,7 @@
                                                     <TextBlock Text="{ctl:T 'RECOMMENDED'}" FontSize="{x:Static ctl:TextSize.MiniPlus}" FontWeight="Bold" Foreground="{DynamicResource OnAccentBrush}" />
                                                 </Border>
                                             </StackPanel>
-                                            <TextBlock Text="{ctl:T '6 of the 18 pages, to see whether your PC is fine and what went wrong.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
+                                            <TextBlock Text="{ctl:T '6 of the 19 pages, to see whether your PC is fine and what went wrong.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
                                                        TextWrapping="Wrap" MinHeight="38" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Button>

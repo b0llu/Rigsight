@@ -189,6 +189,9 @@ internal static partial class WidgetRenderer
     private static RectangleF InkOf(Graphics g, string text, float px, FontStyle style, bool semibold)
     {
         if (text.Trim().Length == 0) return RectangleF.Empty;
+        // A charging device's number (see BoltMark): its digits' ink and the bolt's room after them.
+        if (SplitBolt(text) is (var digits, true))
+            return InkOf(g, digits, px, style, semibold) is { IsEmpty: false } d ? new RectangleF(d.Left, d.Top, d.Width + BoltWidth(px), d.Height) : RectangleF.Empty;
         float scale = g.Transform.Elements[0] is > 0 and var s0 ? s0 : 1;
         var key = (text, FontName ?? "", px, style, semibold, scale);
         if (InkCache.TryGetValue(key, out var ink)) return ink;

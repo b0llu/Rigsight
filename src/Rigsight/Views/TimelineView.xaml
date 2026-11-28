@@ -214,6 +214,76 @@
             </Setter>
         </Style>
 
+        <!-- A line of This PC now that opens something (1.22.0): lit on hover, a little past the panel's text so the light has room. -->
+        <Style x:Key="NowRow" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="-6,0,-6,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Choice}" Opacity="0" />
+                            <ContentPresenter Margin="6,0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A row of the every-driver list (1.22.0): the whole row opens that driver, lit on hover and on keyboard focus. -->
+        <Style x:Key="DriverRow" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Field}" Opacity="0" />
+                            <ContentPresenter Margin="10,9" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A tile of one driver's view: a small caps label, the figure (the version before it muted, an arrow), a line under it. -->
+        <DataTemplate x:Key="DriverTileTemplate">
+            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Tile}" Padding="15,13" Margin="6,0">
+                <StackPanel>
+                    <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" />
+                    <TextBlock Margin="0,6,0,0" FontSize="{x:Static ctl:TextSize.FigureLarge}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                        <Run x:Name="Was" Text="{Binding Was, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" FontWeight="Medium" /><Run x:Name="Arrow" Text="  →  "
+                            Foreground="{DynamicResource FaintBrush}" FontWeight="Normal" FontSize="{x:Static ctl:TextSize.Body}" /><Run Text="{Binding Value, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                    </TextBlock>
+                    <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                               Visibility="{Binding HasSub, Converter={StaticResource Vis}}" />
+                </StackPanel>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasWas}" Value="False">
+                    <Setter TargetName="Was" Property="Text" Value="" />
+                    <Setter TargetName="Arrow" Property="Text" Value="" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
         <!-- Lines folded into one (by day the kinds ticked under Fold, by month each kind of change). The whole line opens
              and closes it, with an arrow at its end that turns (approved mock-up, 2026-11-25: no "Show all" link under it).
              Open, each line is under it at its own time, a thin thread of the kind's colour running down from its icon;
@@ -322,7 +392,9 @@
                 <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
                            Foreground="{DynamicResource MutedBrush}" />
                 <TextBlock Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
-                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
+                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding VersionFrom, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" /><Run
+                        Text="{Binding VersionArrow, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding VersionTo, Mode=OneWay}" /><Run
+                        Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
                 </TextBlock>
                     <!-- The card (approved mock-up B, 2026-11-24): one button that opens the whole before and after, its
                          figures in a soft panel, how sure in words under them, the AI question a quiet link. No row lines
@@ -418,8 +490,38 @@
             </Button>
         </DataTemplate>
 
+        <!-- A driver line (1.22.0, approved mock-up v8): the maker's square, the device, the version before muted and the
+             new one bold. The whole line opens that driver inside Timeline, lit on hover; a driver the history doesn't
+             follow opens nothing, so it has no light and no arrow. -->
+        <DataTemplate x:Key="DriverEntry">
+            <Button Style="{StaticResource RowButton}" Command="{Binding DataContext.OpenDriverEntryCommand, ElementName=Page}" CommandParameter="{Binding}"
+                    IsHitTestVisible="{Binding CanOpenDriver}" Focusable="{Binding CanOpenDriver}"
+                    AutomationProperties.Name="{Binding SpokenDriver}" AutomationProperties.HelpText="{ctl:T 'Open this driver'}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="72" />
+                        <ColumnDefinition Width="26" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                    <Border Grid.Column="1" Width="18" Height="18" CornerRadius="{x:Static ctl:Corner.Chip}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,0,0"
+                            Background="{Binding Maker.Back, Converter={StaticResource ResourceBrush}}">
+                        <TextBlock Text="{Binding Maker.Letter}" FontSize="{x:Static ctl:TextSize.Tiny}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{Binding Maker.Ink, Converter={StaticResource ResourceBrush}}" />
+                    </Border>
+                    <TextBlock Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
+                        <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding VersionFrom, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" /><Run
+                            Text="{Binding VersionArrow, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding VersionTo, Mode=OneWay}" FontWeight="SemiBold" />
+                    </TextBlock>
+                    <TextBlock Grid.Column="3" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                               VerticalAlignment="Top" Margin="12,4,0,0" Visibility="{Binding CanOpenDriver, Converter={StaticResource Vis}}" />
+                </Grid>
+            </Button>
+        </DataTemplate>
+
         <views:TimelineEntryTemplates x:Key="EntryTemplates" Plain="{StaticResource PlainEntry}" Problem="{StaticResource ProblemEntry}" Rich="{StaticResource RichEntry}"
-                                      Result="{StaticResource ResultEntry}" Game="{StaticResource GameEntry}" Delay="{StaticResource DelayEntry}" />
+                                      Result="{StaticResource ResultEntry}" Game="{StaticResource GameEntry}" Delay="{StaticResource DelayEntry}" Driver="{StaticResource DriverEntry}" />
 
         <!-- A day: its dot on the line that runs down the list, its name, and its lines. -->
         <DataTemplate x:Key="DayTemplate">
@@ -650,14 +752,23 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel>
+                                    <!-- A line that opens something inside Timeline (the graphics driver, every driver: 1.22.0) is one
+                                         button, lit on hover; the others aren't, so they have no light. -->
+                                    <Button Style="{StaticResource NowRow}" IsHitTestVisible="{Binding CanOpen}" Focusable="{Binding CanOpen}"
+                                            Command="{Binding DataContext.OpenNowFactCommand, ElementName=Page}" CommandParameter="{Binding}" AutomationProperties.Name="{Binding Label}">
                                     <DockPanel Margin="0,4">
                                         <TextBlock DockPanel.Dock="Left" Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" />
                                         <StackPanel HorizontalAlignment="Right">
-                                            <TextBlock Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" Foreground="{DynamicResource MutedBrush}" Margin="6,1,0,0"
+                                                           Visibility="{Binding HasArrow, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
                                             <TextBlock Text="{Binding Since}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right"
                                                        Visibility="{Binding Since, Converter={StaticResource Vis}}" />
                                         </StackPanel>
                                     </DockPanel>
+                                    </Button>
                                     <!-- What its last change made better or worse, where it did: the panel's whole width, so it reads in one line. -->
                                     <TextBlock FontSize="{x:Static ctl:TextSize.Label}" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="Wrap" Margin="0,-2,0,4"
                                                Visibility="{Binding ResultText, Converter={StaticResource Vis}}">
@@ -925,6 +1036,288 @@
             </StackPanel>
         </ScrollViewer>
     </Grid>
+    </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
+
+    <!-- One driver (1.22.0, approved mock-up v8: "only that driver"): opened from its Timeline line, This PC now's graphics
+         driver or a row of every driver. Its maker and kind, four figures, every version, Before and after only where there
+         is one, and the way back a version. In place of the list until Back. Built the first time one opens. -->
+    <ctl:LazyTab Shown="{Binding IsDriverShown}"><ctl:LazyTab.Body><DataTemplate>
+    <ScrollViewer x:Name="DriverScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Loaded="DriverScroller_Loaded">
+        <StackPanel Margin="32,18,32,32" MaxWidth="{StaticResource PageWidth}" DataContext="{Binding OneDriver}">
+            <Button Style="{StaticResource ActionButton}" HorizontalAlignment="Left" Margin="-9,0,0,14" Command="{Binding DataContext.DriverBackCommand, ElementName=Page}"
+                    AutomationProperties.Name="{Binding BackText}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,1,8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding BackText}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+            <!-- The maker's square, the device, its kind and maker; Device Manager on the right. -->
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="16,0,0,0" ToolTip="{ctl:T 'Opens Windows\' Device Manager'}"
+                        Command="{Binding DataContext.OpenDeviceManagerCommand, ElementName=Page}" AutomationProperties.Name="{ctl:T 'Open Device Manager'}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{ctl:T 'Open Device Manager'}" VerticalAlignment="Center" />
+                        <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,1,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Border DockPanel.Dock="Left" Width="48" Height="48" CornerRadius="{x:Static ctl:Corner.Tile}" Margin="0,0,16,0" VerticalAlignment="Center"
+                        Background="{Binding Maker.Back, Converter={StaticResource ResourceBrush}}">
+                    <TextBlock Text="{Binding Maker.Letter}" FontSize="{x:Static ctl:TextSize.SubtitlePlus}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{Binding Maker.Ink, Converter={StaticResource ResourceBrush}}" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource H1}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding KindLine}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                </StackPanel>
+            </DockPanel>
+
+            <!-- The four figures: white, in soft panels. -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,20,0,0" Padding="14,20">
+                <ItemsControl ItemsSource="{Binding Tiles}" ItemTemplate="{StaticResource DriverTileTemplate}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ctl:SmoothBorder>
+
+            <Grid Margin="0,20,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.3*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Every version, newest first: a dot on a thread (the one it's on in its kind's colour), the version, when, how long. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" VerticalAlignment="Top">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,6">
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Newest first'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Every version'}" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <ItemsControl ItemsSource="{Binding Versions}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+                                        <!-- The thread: up to the dot from the version above, down from it to the one below. -->
+                                        <Border x:Name="Up" Width="1" HorizontalAlignment="Left" Margin="5,0,0,0" Background="{DynamicResource StrokeBrush}" />
+                                        <Border x:Name="Down" Grid.Row="1" Width="1" HorizontalAlignment="Left" Margin="5,0,0,0" Background="{DynamicResource StrokeBrush}" />
+                                        <Ellipse x:Name="Glow" Grid.RowSpan="2" Width="19" Height="19" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="-4,0,0,0" Visibility="Collapsed"
+                                                 Fill="{Binding DotBrush, Converter={StaticResource SureBrush}, ConverterParameter=soft}" />
+                                        <Ellipse x:Name="Dot" Grid.RowSpan="2" Width="11" Height="11" HorizontalAlignment="Left" VerticalAlignment="Center" Opacity="0.55"
+                                                 Fill="{Binding DotBrush, Converter={StaticResource ResourceBrush}}" />
+                                        <TextBlock Grid.Column="1" Grid.RowSpan="2" Text="{Binding Version}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,10" />
+                                        <StackPanel Grid.Column="2" Grid.RowSpan="2" VerticalAlignment="Center" Margin="0,10">
+                                            <TextBlock Text="{Binding Range}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Days}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0"
+                                                       Visibility="{Binding HasDays, Converter={StaticResource Vis}}" />
+                                        </StackPanel>
+                                        <Border Grid.Column="3" Grid.RowSpan="2" Style="{StaticResource Chip}" Padding="8,3" Margin="12,0,0,0" Visibility="{Binding HasChip, Converter={StaticResource Vis}}"
+                                                Background="{Binding ChipBrush, Converter={StaticResource SureBrush}, ConverterParameter=soft}">
+                                            <TextBlock Text="{Binding Chip}" FontSize="{x:Static ctl:TextSize.MiniPlus}" FontWeight="Bold" Foreground="{Binding ChipBrush, Converter={StaticResource ResourceBrush}}" />
+                                        </Border>
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsFirst}" Value="True">
+                                            <Setter TargetName="Up" Property="Visibility" Value="Hidden" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsLast}" Value="True">
+                                            <Setter TargetName="Down" Property="Visibility" Value="Hidden" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                            <Setter TargetName="Glow" Property="Visibility" Value="Visible" />
+                                            <Setter TargetName="Dot" Property="Opacity" Value="1" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <StackPanel Grid.Column="2">
+                    <!-- Only where its last change made something better or worse (Before and after has one). -->
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,0,20" Visibility="{Binding HasResult, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Before and after'}" Style="{StaticResource H2}" />
+                            <TextBlock Text="{Binding Result.Headline}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock Text="{Binding Result.Context}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            <Button Style="{StaticResource ActionButton}" HorizontalAlignment="Left" Margin="-9,8,0,0" Command="{Binding DataContext.OpenDriverResultCommand, ElementName=Page}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{ctl:T 'Open Before and after'}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,1,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding CanRollBack, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Rolling back'}" Style="{StaticResource H2}" />
+                            <TextBlock Text="{ctl:T 'Device Manager can roll this driver back one version, when Windows kept the files.'}" FontSize="{x:Static ctl:TextSize.Body}"
+                                       Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock Text="{Binding MakerSite}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Visibility="{Binding HasMakerSite, Converter={StaticResource Vis}}" />
+                            <!-- No second Open Device Manager here: the page's header has it (user test, 2026-11-27). -->
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+    </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
+
+    <!-- Every driver on this PC (1.22.0, approved mock-up v8), opened from This PC now's "Drivers": the makers' drivers by
+         kind, then the ones no longer here, then Windows' own in a box that scrolls. A row opens that driver. -->
+    <ctl:LazyTab Shown="{Binding IsEveryDriverShown}"><ctl:LazyTab.Body><DataTemplate>
+    <ScrollViewer x:Name="EveryScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Loaded="EveryScroller_Loaded">
+        <StackPanel Margin="32,18,32,32" MaxWidth="{StaticResource PageWidth}" DataContext="{Binding EveryDriver}">
+            <Button Style="{StaticResource ActionButton}" HorizontalAlignment="Left" Margin="-9,0,0,14" Command="{Binding DataContext.DriverBackCommand, ElementName=Page}"
+                    AutomationProperties.Name="{ctl:T 'Back to Timeline'}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,1,8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{ctl:T 'Back to Timeline'}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="16,0,0,0" ToolTip="{ctl:T 'Opens Windows\' Device Manager'}"
+                        Command="{Binding DataContext.OpenDeviceManagerCommand, ElementName=Page}" AutomationProperties.Name="{ctl:T 'Open Device Manager'}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{ctl:T 'Open Device Manager'}" VerticalAlignment="Center" />
+                        <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,1,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <StackPanel>
+                    <TextBlock Text="{ctl:T 'Every driver on this PC'}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{ctl:T 'Each device\'s driver now, and each version it has had.'}" Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </DockPanel>
+
+            <DockPanel Margin="0,22,0,0">
+                <TextBlock DockPanel.Dock="Right" Text="{Binding Counts}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,0,0" />
+                <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Style="{StaticResource Segment}" GroupName="EveryDriverFilter" Content="{ctl:T 'Changed in the last 90 days'}"
+                                     IsChecked="{Binding RecentOnly, Converter={StaticResource Equals}, ConverterParameter=True}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="EveryDriverFilter" Content="{ctl:T 'All'}"
+                                     IsChecked="{Binding RecentOnly, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                    </StackPanel>
+                </Border>
+                <TextBox Style="{StaticResource SearchBox}" Tag="{ctl:T 'Find a driver'}" Width="260" Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                         AutomationProperties.Name="{ctl:T 'Find a driver'}" ctl:Debounce.Text="{Binding Search}" />
+            </DockPanel>
+
+            <!-- Each kind: its coloured icon square, its name and how many, then its rows. -->
+            <ItemsControl ItemsSource="{Binding Groups}" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,20,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="10,0,0,8">
+                                <Border Width="26" Height="26" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{Binding Brush, Converter={StaticResource SureBrush}, ConverterParameter=soft}">
+                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                </Border>
+                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="10,0,8,0" />
+                                <TextBlock Text="{Binding Count}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource DriverRow}" Command="{Binding DataContext.OpenDriverRowCommand, ElementName=Page}" CommandParameter="{Binding}"
+                                                AutomationProperties.Name="{Binding Spoken}" AutomationProperties.HelpText="{ctl:T 'Open this driver'}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="42" />
+                                                    <ColumnDefinition Width="1.6*" />
+                                                    <ColumnDefinition Width="160" />
+                                                    <ColumnDefinition Width="1.4*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                        Background="{Binding Square.Back, Converter={StaticResource ResourceBrush}}">
+                                                    <TextBlock Text="{Binding Square.Letter}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{Binding Square.Ink, Converter={StaticResource ResourceBrush}}" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Maker}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding Version}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+                                                <TextBlock x:Name="Change" Grid.Column="3" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis">
+                                                    <Run x:Name="Was" Text="{Binding Was, Mode=OneWay}" /><Run x:Name="Arrow" Text="  →  " Foreground="{DynamicResource FaintBrush}" /><Run x:Name="Now"
+                                                        Text="{Binding Now, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run x:Name="Dot" Text=" · " /><Run Text="{Binding Change, Mode=OneWay}" />
+                                                </TextBlock>
+                                                <TextBlock Grid.Column="4" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                                                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                                            </Grid>
+                                        </Button>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding HasStep}" Value="False">
+                                                <Setter TargetName="Was" Property="Text" Value="" />
+                                                <Setter TargetName="Arrow" Property="Text" Value="" />
+                                                <Setter TargetName="Now" Property="Text" Value="" />
+                                                <Setter TargetName="Dot" Property="Text" Value="" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Quiet}" Value="True">
+                                                <Setter TargetName="Change" Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <StackPanel HorizontalAlignment="Center" Margin="0,40,0,0" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
+                <TextBlock Text="&#xE950;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S30}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />
+            </StackPanel>
+
+            <!-- Windows' own drivers: last, in a box that scrolls (its last row cut through the middle, so the scroll shows),
+                 the ones changed in the last 90 days at its top. Not opened: they change with Windows updates. -->
+            <StackPanel Margin="0,26,0,0" Visibility="{Binding HasInbox, Converter={StaticResource Vis}}">
+                <StackPanel Orientation="Horizontal" Margin="10,0,0,6">
+                    <TextBlock Text="{ctl:T 'THAT COME WITH WINDOWS'}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" />
+                    <TextBlock Text="{Binding InboxCount}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="8,0,0,0" />
+                </StackPanel>
+                <TextBlock Text="{Binding InboxNote}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="10,0,0,8" />
+                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Field}" Padding="4">
+                    <ScrollViewer Style="{StaticResource CardScroll}" MaxHeight="196">
+                        <ItemsControl ItemsSource="{Binding Inbox}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="10,7">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.6*" />
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Version}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Change}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
     </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
     </Grid>

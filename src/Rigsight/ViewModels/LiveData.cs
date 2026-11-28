@@ -853,6 +853,9 @@ public sealed partial class LiveData : ObservableObject
             }
             for (int i = 0; i < values.Length; i++)
                 _flat[i].Push(tick.Time, values[i]);
+            // Each wireless device's charging, as it says (1.22.0): a bolt or "Full" beside its number.
+            foreach (var item in _flat)
+                if (item.Kind == SensorKind.Battery) item.Charge = DeviceCharge.FromWire(tick.Charge?.GetValueOrDefault(item.Id));
             foreach (var node in Hardware) node.RefreshKeys();
             UpdateGlance();
             UpdateDerived();
@@ -1460,6 +1463,8 @@ public sealed partial class LiveData : ObservableObject
         var rows = new List<object>(_flat.Count + Hardware.Count * 2);
         foreach (var node in OrderedHardware().Where(n => n.HasVisibleSensors))
         {
+            // A wireless device is one card with its battery in it: no table for one sensor.
+            if (node.Card is { } card) { rows.Add(card); continue; }
             rows.Add(node);
             if (node.IsExpanded && !IsReordering) rows.AddRange(node.Sensors.Where(s => s.IsShown));
             rows.Add(node.End);
@@ -1499,6 +1504,7 @@ public sealed partial class LiveData : ObservableObject
     public HardwareNode? GroupOf(object? row) => row switch
     {
         HardwareNode node => node,
+        DeviceCard card => card.Node,
         SensorGroupEnd end => end.Owner,
         SensorItem item => Hardware.FirstOrDefault(n => n.Sensors.Contains(item)),
         _ => null,

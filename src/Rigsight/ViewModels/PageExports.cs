@@ -28,6 +28,7 @@ public static class PageExports
         "fans" => Fans(shell.Fans, shell.Reports, shell.Live, shell.Settings),
         "power" => Power(shell.Power, shell.Reports, shell.Live, shell.Settings),
         "latency" => Latency(shell.Latency, shell.Reports),
+        "startup" => Startup(shell.Startup, shell.Reports),
         "memory" => Memory(shell.Live),
         "storage" => Storage(shell.Storage),
         "network" => Network(shell.Network),
@@ -36,7 +37,7 @@ public static class PageExports
 
     /// <summary>Whether a page has an Export button.</summary>
     public static bool Has(string page) => page is "home" or "reports" or "apps" or "games" or "crashes" or "timeline" or "temperatures" or "fans" or "power"
-        or "latency" or "memory" or "storage" or "network" || page.StartsWith("custom:", StringComparison.Ordinal);
+        or "latency" or "startup" or "memory" or "storage" or "network" || page.StartsWith("custom:", StringComparison.Ordinal);
 
     private static string From(string page) => Lang.T($"From the {page} page. Nothing leaves this PC.");
 
@@ -385,6 +386,28 @@ public static class PageExports
                         bool onScreen = unit == vm.Unit && anchor == vm.Anchor && vm.Loaded && !vm.IsLoading;
                         var facts = onScreen ? vm.SummaryFacts() : await LatencyViewModel.SummaryAsync(reports, unit, anchor, filter);
                         return (_, _) => ExportSheets.Summary(Lang.T("Latency summary"), Lang.T("What the Latency page says about the period."), facts, run.From, run.To);
+                    },
+                },
+            ],
+            periods, IndexOf(periods, vm.Unit), null, [], NoFilter, FirstDay: vm.FirstDay);
+    }
+
+    // The Start-up page (1.22.0): its sentence's figures and every start with its parts, for the period picked.
+    private static PageExportSpec Startup(StartupViewModel vm, ReportService reports)
+    {
+        var periods = Units(vm.Anchor, custom: false);
+        var (unitShown, anchorShown) = (vm.Unit, vm.Anchor);
+        return new(Lang.T("Export start-up"), From(Lang.T("Start-up")),
+            [
+                new(Lang.T("Summary"), Lang.T("How many starts, the average, the longest, and every start with its parts."), PageItemKind.Sheet, true)
+                {
+                    BytesPerDay = 200,
+                    SheetAsync = async run =>
+                    {
+                        var (unit, anchor) = (run.Choice?.Unit ?? unitShown, run.Choice?.Anchor ?? anchorShown);
+                        bool onScreen = unit == vm.Unit && anchor == vm.Anchor && vm.Loaded && !vm.IsLoading;
+                        var facts = onScreen ? vm.SummaryFacts() : await StartupViewModel.SummaryAsync(reports, unit, anchor);
+                        return (_, _) => ExportSheets.Summary(Lang.T("Start-up summary"), Lang.T("What the Start-up page says about the period."), facts, run.From, run.To);
                     },
                 },
             ],

@@ -420,6 +420,9 @@ public partial class MainWindow : Window
         // The same for an opened change: the sidebar's Timeline goes back to the list.
         if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "timeline" } && _vm.CurrentPage == "timeline")
             _vm.Timeline.CloseChangeCommand.Execute(null);
+        // …and for a driver or every driver opened inside it (1.22.0).
+        if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "timeline" } && _vm.CurrentPage == "timeline")
+            _vm.Timeline.CloseDriversCommand.Execute(null);
         // Picked in a group's list beside its icon (icons only): the list closes.
         CloseRailFlyout(sender);
     }
@@ -486,6 +489,7 @@ public partial class MainWindow : Window
                 "fans" => new FansView { DataContext = _vm.Fans },
                 "power" => new PowerView { DataContext = _vm.Power },
                 "latency" => new LatencyView { DataContext = _vm.Latency },
+                "startup" => new StartupView { DataContext = _vm.Startup },
                 ViewModels.SidebarViewModel.AllPagesKey => new AllPagesView { DataContext = _vm.AllPages },
                 "network" => new NetworkView { DataContext = _vm.Network },
                 "memory" => new MemoryView { DataContext = _vm.Memory },

@@ -13,7 +13,9 @@ namespace Rigsight.Controls;
 /// <param name="Lost">Windows dropped some readings in it: drawn grey, and its hover says so.</param>
 /// <param name="Long">1 ms or more: drawn in full, the rest softer.</param>
 /// <param name="Start">When the slot starts and <paramref name="End"/> ends: what a stretch with nothing recorded says in its hover.</param>
-public sealed record LatencyChartSlot(string Axis, string Title, double? Value, bool Lost, bool Long, IReadOnlyList<string> Lines, DateTime Start = default, DateTime End = default);
+/// <param name="Rich">Since 1.22.0, its rich hover (see <see cref="RichHover"/>), made when first shown; null: the lines.</param>
+public sealed record LatencyChartSlot(string Axis, string Title, double? Value, bool Lost, bool Long, IReadOnlyList<string> Lines, DateTime Start = default, DateTime End = default,
+    Func<RichTip>? Rich = null);
 
 /// <summary>One bar of a live strip: µs, whether it's 1 ms or more, and its hover.</summary>
 public sealed record LiveBar(double Us, bool Long, string Tip);
@@ -39,6 +41,19 @@ public sealed class LatencyChart : FanChartBase
         nameof(GapReason), typeof(Func<long, long, Core.Stability.GapReason>), typeof(LatencyChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public Func<long, long, Core.Stability.GapReason>? GapReason { get => (Func<long, long, Core.Stability.GapReason>?)GetValue(GapReasonProperty); set => SetValue(GapReasonProperty, value); }
+
+    /// <summary>
+    /// When what the chart shows was first recorded: a stretch before it is "not recorded yet", never put down to what
+    /// Windows' log says happened in it (a sudden shut-off days before the wake-up check existed was named for all of it).
+    /// </summary>
+    public static readonly DependencyProperty RecordedFromProperty = DependencyProperty.Register(
+        nameof(RecordedFrom), typeof(DateTime?), typeof(LatencyChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public DateTime? RecordedFrom { get => (DateTime?)GetValue(RecordedFromProperty); set => SetValue(RecordedFromProperty, value); }
+
+    // A run of empty slots that ends before anything was recorded.
+    private bool BeforeRecording(IReadOnlyList<LatencyChartSlot> slots, int to) =>
+        RecordedFrom is { } first && slots[to - 1].End != default && slots[to - 1].End <= first;
 
     public static readonly DependencyProperty PlateBrushProperty = DependencyProperty.Register(
         nameof(PlateBrush), typeof(Brush), typeof(LatencyChart), new FrameworkPropertyMetadata(Brushes.Black, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -91,7 +106,7 @@ public sealed class LatencyChart : FanChartBase
         foreach (var (i, j) in Gaps(slots))
         {
             dc.DrawRectangle(strip, null, new Rect(plot.Left + slotW * i, plot.Bottom - 3, slotW * (j - i), 3));
-            if (Reason(slots, i, j) is Core.Stability.GapReason.ShutOff or Core.Stability.GapReason.Crashed)
+            if (!BeforeRecording(slots, j) && Reason(slots, i, j) is Core.Stability.GapReason.ShutOff or Core.Stability.GapReason.Crashed)
             {
                 double x = Math.Round(plot.Left + slotW * i) + 0.5;
                 var mark = new StreamGeometry();
@@ -106,6 +121,12 @@ public sealed class LatencyChart : FanChartBase
             }
         }
 
+        // The slot under the pointer, when it has its own hover: its column lit behind the bars.
+        int? hovered = HoverX is double px && px >= plot.Left && px <= plot.Right ? Math.Clamp((int)((px - plot.Left) / slotW), 0, slots.Count - 1) : null;
+        bool rich = hovered is int hr && slots[hr].Rich is not null && slots[hr].Value is not null;
+        var lit = hovered is int li ? new Rect(plot.Left + slotW * li, plot.Top, Math.Max(1, slotW), plot.Height) : Rect.Empty;
+        if (rich) RichHover.Lit(dc, lit);
+
         double barW = Math.Max(2, Math.Min(26, slotW * 0.7));
         var soft = Faded(BarBrush, 0.5);
         var lost = Faded(LabelBrush, 0.7);
@@ -119,7 +140,8 @@ public sealed class LatencyChart : FanChartBase
 
         if (ms && Guidance)
         {
-            Line(dc, plot, Y(DriverRules.LongUs), Faded(LabelBrush, 0.9), [4, 4], Lang.T("1 ms"));
+            // The 1 ms line in a soft amber (1.22.0, the approved mock-up), its label too.
+            Line(dc, plot, Y(DriverRules.LongUs), Faded(ChartPaint.Warm, 0.5), [4, 4], Lang.T("1 ms"), Faded(ChartPaint.Warm, 0.85));
             if (DriverRules.GuidanceDpcUs / top > 0.04)
                 Line(dc, plot, Y(DriverRules.GuidanceDpcUs), Faded(LabelBrush, 0.55), [2, 4], Lang.T("Microsoft's aim for drivers, 0.1 ms"));
         }
@@ -133,16 +155,38 @@ public sealed class LatencyChart : FanChartBase
             // Over a stretch with nothing recorded: why, where Windows' log says, and from when to when (as on Temperatures).
             if (slots[i].Value is null && slots[i].Start != default && Gaps(slots).FirstOrDefault(g => i >= g.From && i < g.To) is { To: > 0 } gap)
             {
-                var reason = Reason(slots, gap.From, gap.To);
-                string? why = reason == Core.Stability.GapReason.NotRunning ? null : Core.Stability.PowerLog.Words(reason);
                 bool hourly = slots[gap.From].End - slots[gap.From].Start < TimeSpan.FromDays(1);
                 string Moment(DateTime t) => !hourly ? t.ToString("d MMM", CultureInfo.CurrentCulture)
                     : (t.Date == DateTime.Today ? "" : t.ToString("ddd ", CultureInfo.CurrentCulture)) + TimeText.Time(t);
                 string from = Moment(slots[gap.From].Start), until = Moment(slots[gap.To - 1].End);
-                Hover(dc, plot, X(i), why ?? Wording.NotRecorded, [why is null ? Lang.T($"{from} to {until}") : Lang.T($"Not recorded  ·  {from} to {until}")]);
+                if (BeforeRecording(slots, gap.To))
+                    Hover(dc, plot, X(i), Lang.T("Not recorded yet"), [Lang.T($"{from} to {until}"), Lang.T($"Recording began on {RecordedFrom!.Value:d MMM}")]);
+                else
+                {
+                    var reason = Reason(slots, gap.From, gap.To);
+                    string? why = reason == Core.Stability.GapReason.NotRunning ? null : Core.Stability.PowerLog.Words(reason);
+                    Hover(dc, plot, X(i), why ?? Wording.NotRecorded, [why is null ? Lang.T($"{from} to {until}") : Lang.T($"Not recorded  ·  {from} to {until}")]);
+                }
             }
+            else if (rich && slots[i].Rich is { } make)
+                // The hour's own hover beside its column: it may rise over the card's heading, never below the chart.
+                RichHover.Draw(dc, this, Tip(i, make), lit, new Rect(0, -RiseAbove, ActualWidth, ActualHeight + RiseAbove));
             else Hover(dc, plot, X(i), slots[i].Title, slots[i].Lines);
         }
+    }
+
+    /// <summary>How far a rich hover may rise above the chart, over the card's heading, to fit.</summary>
+    private const double RiseAbove = 120;
+
+    // The rich hover of the slot under the pointer, made once while it stays there.
+    private (IReadOnlyList<LatencyChartSlot>? Slots, int Index, RichTip? Tip) _tip;
+
+    private RichTip Tip(int i, Func<RichTip> make)
+    {
+        if (ReferenceEquals(_tip.Slots, Slots) && _tip.Index == i && _tip.Tip is { } made) return made;
+        var tip = make();
+        _tip = (Slots, i, tip);
+        return tip;
     }
 
     // The runs of slots with nothing recorded: [From, To) by index.
@@ -167,13 +211,13 @@ public sealed class LatencyChart : FanChartBase
             : Core.Stability.GapReason.Unknown;
 
     // A labelled reference line across the plot, the label right-aligned above it.
-    private void Line(DrawingContext dc, Rect plot, double y, Brush brush, double[] dashes, string label)
+    private void Line(DrawingContext dc, Rect plot, double y, Brush brush, double[] dashes, string label, Brush? labelBrush = null)
     {
         var pen = new Pen(brush, 1) { DashStyle = new DashStyle(dashes, 0) };
         pen.Freeze();
         y = Math.Round(y) + 0.5;
         dc.DrawLine(pen, new Point(plot.Left, y), new Point(plot.Right, y));
-        var text = Text(label, LabelBrush);
+        var text = Text(label, labelBrush ?? LabelBrush);
         var at = new Point(plot.Right - text.Width - 4, y - text.Height - 2);
         dc.DrawRoundedRectangle(PlateBrush, null, new Rect(at.X - 4, at.Y - 1, text.Width + 8, text.Height + 2), 3, 3);
         dc.DrawText(text, at);
@@ -193,6 +237,11 @@ public sealed class LiveStrip : FanChartBase
         nameof(IsLine), typeof(bool), typeof(LiveStrip), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty StrokeProperty = DependencyProperty.Register(
         nameof(Stroke), typeof(Brush), typeof(LiveStrip), new FrameworkPropertyMetadata(Brushes.White, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty FilledProperty = DependencyProperty.Register(
+        nameof(Filled), typeof(bool), typeof(LiveStrip), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>A line with a soft fill of its colour under it, fading down (1.22.0, the app wake-up delay).</summary>
+    public bool Filled { get => (bool)GetValue(FilledProperty); set => SetValue(FilledProperty, value); }
 
     public IReadOnlyList<LiveBar>? Bars { get => (IReadOnlyList<LiveBar>?)GetValue(BarsProperty); set => SetValue(BarsProperty, value); }
     public bool IsLine { get => (bool)GetValue(IsLineProperty); set => SetValue(IsLineProperty, value); }
@@ -215,6 +264,7 @@ public sealed class LiveStrip : FanChartBase
         {
             var pen = new Pen(Stroke, 1.6) { LineJoin = PenLineJoin.Round };
             pen.Freeze();
+            if (Filled && Stroke is SolidColorBrush solid) DrawFill(dc, bars, solid.Color, plot, w, Y);
             var geo = new StreamGeometry();
             using (var g = geo.Open())
             {
@@ -256,4 +306,26 @@ public sealed class LiveStrip : FanChartBase
     }
 
     private static string Axis(double us) => us >= 1000 ? $"{us / 1000:0.#} ms" : $"{us / 1000:0.##} ms";
+
+    // Under each run of the line, its colour fading from a third to nothing at the foot.
+    private static void DrawFill(DrawingContext dc, IReadOnlyList<LiveBar> bars, Color color, Rect plot, double w, Func<double, double> y)
+    {
+        var fill = new LinearGradientBrush(Color.FromArgb(90, color.R, color.G, color.B), Color.FromArgb(0, color.R, color.G, color.B), 90);
+        fill.Freeze();
+        var geo = new StreamGeometry();
+        using (var g = geo.Open())
+        {
+            int i = 0;
+            while (i < bars.Count)
+            {
+                if (bars[i].Us <= 0) { i++; continue; }
+                int start = i;
+                g.BeginFigure(new Point(w * (start + 0.5), plot.Bottom), true, true);
+                for (; i < bars.Count && bars[i].Us > 0; i++) g.LineTo(new Point(w * (i + 0.5), y(bars[i].Us)), false, false);
+                g.LineTo(new Point(w * (i - 0.5), plot.Bottom), false, false);
+            }
+        }
+        geo.Freeze();
+        dc.DrawGeometry(fill, null, geo);
+    }
 }

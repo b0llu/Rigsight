@@ -603,8 +603,8 @@
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold"
                                                                    Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
                                                         <Border DockPanel.Dock="Left" Style="{StaticResource Badge}" Background="{Binding Sensor.Kind, Converter={StaticResource KindBrush}, ConverterParameter=soft}"
-                                                                VerticalAlignment="Center" Padding="6,2" Width="44" Margin="0,0,10,0">
-                                                            <TextBlock Text="{Binding TypeLabel}" FontSize="{x:Static ctl:TextSize.Tiny}" FontWeight="Bold" HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" Padding="{x:Static ctl:KindTag.Padding}" Width="{x:Static ctl:KindTag.Width}" Margin="0,0,10,0">
+                                                            <TextBlock Text="{Binding TypeLabel}" FontSize="{x:Static ctl:TextSize.Tiny}" FontWeight="Bold" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
                                                                        Foreground="{Binding Sensor.Kind, Converter={StaticResource KindBrush}}" />
                                                         </Border>
                                                         <StackPanel VerticalAlignment="Center">

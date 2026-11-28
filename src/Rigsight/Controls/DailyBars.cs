@@ -342,7 +342,7 @@ public sealed class DailyBars : FrameworkElement
     {
         var d = days[i];
         DateTime end = hourly ? d.Day.AddHours(1) : monthly ? d.Day.AddMonths(1) : d.Day.AddDays(1);
-        string title = hourly ? $"{TimeText.At(d.Day, "h tt")} – {TimeText.At(end, "h tt")}" : d.Day.ToString(monthly ? "MMMM yyyy" : "dddd, d MMM");
+        string title = hourly ? $"{TimeText.At(d.Day, "h tt")} – {TimeText.At(end, "h tt")}" : TimeText.At(d.Day, monthly ? "MMMM yyyy" : "dddd, d MMM");
         string? total = d.ActiveSec >= 60 ? Units.Duration(d.ActiveSec) : null;
         string? note = d.ActiveSec >= 60 ? Against(days, d, hourly, monthly, now, end) : d.Day > now ? Lang.T("Still to come") : Lang.T("No activity");
         var kinds = Kinds(d);

@@ -1,0 +1,500 @@
+<UserControl x:Class="Rigsight.Views.StartupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             x:Name="Page">
+    <!-- The Start-up page (1.22.0, approved mock-up 2026-11-27): every period has the same blocks. A sentence and four
+         figures; every start (on a 12 AM to 12 AM clock on Day, a week a bar on Year) with the picked one opened under it;
+         and what starts with Windows. What Windows reported and what changed are kept apart, never joined into a cause.
+         Nothing that can't be clicked lights up under the pointer. -->
+    <UserControl.Resources>
+        <!-- A caps heading inside a card ("WHAT WINDOWS REPORTED"). -->
+        <Style x:Key="Sect" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="0,2,0,8" />
+        </Style>
+        <!-- A swatch of the legend. -->
+        <Style x:Key="Swatch" TargetType="Border">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="LegendText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Detail}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,18,0" />
+        </Style>
+        <!-- An app's icon, or its first letter in a square where RigSight has no file for it. -->
+        <DataTemplate x:Key="AppSquare">
+            <Grid Width="30" Height="30">
+                <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Visibility="{Binding HasIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                    <TextBlock Text="{Binding Letter}" FontWeight="Bold" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Image Source="{Binding IconPath, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="24" Height="24" HorizontalAlignment="Center"
+                       Visibility="{Binding HasIcon, Converter={StaticResource Vis}}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
+            <DockPanel Margin="0,0,0,14">
+                <Button Style="{StaticResource PageExportButton}" />
+                <StackPanel>
+                    <TextBlock Text="{ctl:T Start-up}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{ctl:T 'How long this PC takes to start, and what was different when a start took longer.'}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                </StackPanel>
+            </DockPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
+                                  CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,80,0,0"
+                         Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
+
+            <StackPanel Visibility="{Binding Loaded, Converter={StaticResource Vis}}">
+                <!-- Where the period has no start with its length on record (this start still being read, nothing read yet, or
+                     Windows' logs no longer reaching back): one calm card in place of the summary and the chart. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding ShowEmptyCard, Converter={StaticResource Vis}}">
+                    <HeaderedContentControl Style="{StaticResource IconRow}">
+                        <HeaderedContentControl.Header>
+                            <Grid Width="32" Height="32" Margin="0,0,2,0">
+                                <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{Binding EmptyBrush, Converter={StaticResource ResourceBrush}}" Opacity="0.14" />
+                                <TextBlock Text="&#xE7E8;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
+                                           Foreground="{Binding EmptyBrush, Converter={StaticResource ResourceBrush}}" />
+                            </Grid>
+                        </HeaderedContentControl.Header>
+                        <StackPanel>
+                            <TextBlock Text="{Binding EmptyTitle}" FontSize="{x:Static ctl:TextSize.Heading}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </HeaderedContentControl>
+                </ctl:SmoothBorder>
+
+                <!-- ── 1. A sentence and four figures ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding ShowReport, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Left" Width="32" Height="32" Margin="0,0,12,0" VerticalAlignment="Top">
+                                <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{Binding SentenceBrush, Converter={StaticResource ResourceBrush}}" Opacity="0.14" />
+                                <TextBlock Text="{Binding SentenceGlyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
+                                           Foreground="{Binding SentenceBrush, Converter={StaticResource ResourceBrush}}" />
+                            </Grid>
+                            <TextBlock Text="{Binding Sentence}" FontSize="{x:Static ctl:TextSize.Heading}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <ItemsControl ItemsSource="{Binding Tiles}" Focusable="False" Margin="-6,16,-6,0" Visibility="{Binding HasStarts, Converter={StaticResource Vis}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="15,13" Margin="6,0">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Caption}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Big}" FontSize="{x:Static ctl:TextSize.FigureLarge}" FontWeight="SemiBold" Margin="0,6,0,0"
+                                                       Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                            <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                                       ctl:TrimmedText.ToolTip="True" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- ── 2. Every start, the picked one opened under it ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding ShowChart, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,8">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding ChartHelp}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="16,0,0,0" />
+                            <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <!-- The legend in two groups: the parts | the marks. -->
+                        <WrapPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Style="{StaticResource Swatch}" Background="{DynamicResource PinkBrush}" />
+                                <TextBlock Text="{ctl:T 'Before Windows'}" Style="{StaticResource LegendText}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Style="{StaticResource Swatch}" Background="{DynamicResource CpuBrush}" />
+                                <TextBlock Text="{ctl:T 'Windows starting'}" Style="{StaticResource LegendText}" />
+                                <Border Style="{StaticResource Swatch}" Background="{DynamicResource PurpleBrush}" />
+                                <TextBlock Text="{ctl:T 'Getting ready after sign-in'}" Style="{StaticResource LegendText}" />
+                            </StackPanel>
+                            <Border Width="1" Height="14" Background="{DynamicResource StrokeBrush}" Margin="0,0,18,0" VerticalAlignment="Center" />
+                            <!-- The usual's band only where there's a usual to draw. -->
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding HasBands, Converter={StaticResource Vis}}">
+                                <Grid Width="10" Height="10" Margin="0,0,6,0" VerticalAlignment="Center">
+                                    <Border Background="{DynamicResource TextBrush}" Opacity="0.09" CornerRadius="2" />
+                                    <Rectangle Stroke="{DynamicResource FaintBrush}" StrokeDashArray="2 2" StrokeThickness="1" RadiusX="2" RadiusY="2" />
+                                </Grid>
+                                <TextBlock Text="{ctl:T 'Your usual full start'}" Style="{StaticResource LegendText}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding ShowLongerMark, Converter={StaticResource Vis}}">
+                                <Ellipse Width="9" Height="9" Fill="{DynamicResource WarmBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Longer than your usual'}" Style="{StaticResource LegendText}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding ShowUpdates, Converter={StaticResource Vis}}">
+                                <Rectangle Width="10" Height="10" RadiusX="2" RadiusY="2" Margin="0,0,6,0" VerticalAlignment="Center">
+                                    <Rectangle.Fill>
+                                        <DrawingBrush TileMode="Tile" Viewport="0,0,6,6" ViewportUnits="Absolute">
+                                            <DrawingBrush.Transform>
+                                                <RotateTransform Angle="45" />
+                                            </DrawingBrush.Transform>
+                                            <DrawingBrush.Drawing>
+                                                <DrawingGroup>
+                                                    <GeometryDrawing Brush="{DynamicResource Surface2Brush}" Geometry="M0,0 H6 V6 H0 Z" />
+                                                    <GeometryDrawing Brush="{DynamicResource FaintBrush}" Geometry="M0,0 H3 V6 H0 Z" />
+                                                </DrawingGroup>
+                                            </DrawingBrush.Drawing>
+                                        </DrawingBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+                                <TextBlock Text="{ctl:T 'Restart after an update'}" Style="{StaticResource LegendText}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding ShowFast, Converter={StaticResource Vis}}">
+                                <TextBlock Text="F" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" Margin="1,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Fast Startup'}" Style="{StaticResource LegendText}" />
+                            </StackPanel>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding TooSoon}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,12,0,0" Visibility="{Binding HasTooSoon, Converter={StaticResource Vis}}" />
+                        <ctl:StartupChart Height="{Binding ChartHeight}" Margin="0,10,0,0" Panel.ZIndex="1" Bars="{Binding Bars}" Top="{Binding Top}" Bands="{Binding Bands}"
+                                          Selected="{Binding Selected, Mode=OneWay}" IsClock="{Binding IsClock}" PickCommand="{Binding PickCommand}"
+                                          AutomationProperties.Name="{Binding ChartTitle}" />
+
+                        <!-- ── The opened start ── -->
+                        <StackPanel DataContext="{Binding Opened}" Visibility="{Binding DataContext.Opened, ElementName=Page, Converter={StaticResource Vis}}">
+                            <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,16,0,18" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.15*" />
+                                    <ColumnDefinition Width="36" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Padding="8,3">
+                                            <Border.Style>
+                                                <Style TargetType="Border" BasedOn="{StaticResource Chip}">
+                                                    <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ChipBlue}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource CpuSoftBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding Chip}" FontSize="{x:Static ctl:TextSize.MiniPlus}" FontWeight="Bold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ChipBlue}" Value="True">
+                                                                <Setter Property="Foreground" Value="{DynamicResource CpuBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                        <TextBlock Text="{Binding When}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock TextWrapping="Wrap" Margin="0,10,0,0">
+                                        <Run Text="{Binding Big, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Gauge}" FontWeight="SemiBold">
+                                            <Run.Style>
+                                                <Style TargetType="Run">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding BigWarm}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Run.Style>
+                                        </Run><Run Text="   " /><Run Text="{Binding Verdict, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{Binding VerdictBrush, Converter={StaticResource ResourceBrush}}" />
+                                    </TextBlock>
+                                    <ctl:StartHeroBar Start="{Binding Bar}" Usual="{Binding Usual}" ToolTip="{Binding UsualTip}" Margin="0,12,0,0" />
+                                    <ItemsControl ItemsSource="{Binding Parts}" Focusable="False" Margin="-6,14,-6,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="3" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="13,11" Margin="6,0">
+                                                    <StackPanel>
+                                                        <!-- A DockPanel, not a horizontal StackPanel: the name gets the tile's width and wraps
+                                                             ("Getting ready after sign-in" was cut to "sign-i" at 1500 px). -->
+                                                        <DockPanel>
+                                                            <Border DockPanel.Dock="Left" Width="8" Height="8" CornerRadius="2" Background="{Binding Brush, Converter={StaticResource ResourceBrush}}" Margin="0,4,7,0" VerticalAlignment="Top" />
+                                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                                                        </DockPanel>
+                                                        <!-- A part with no reading says so small and grey, on the figure's line. -->
+                                                        <Grid Margin="0,5,0,0">
+                                                            <TextBlock Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Warm}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                                            </DataTrigger>
+                                                                            <!-- Kept in place, unseen, so the tile is as tall as the others. -->
+                                                                            <DataTrigger Binding="{Binding Quiet}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Hidden" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                            <TextBlock Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="0,0,0,3"
+                                                                       Visibility="{Binding Quiet, Converter={StaticResource Vis}}" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding Usual}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- The apps Windows launched after sign-in, longest first, each with how long its launch took
+                                         (amber when longer than its own usual): what a long "getting ready" was spent on. -->
+                                    <StackPanel Margin="0,18,0,0" Visibility="{Binding HasLaunched, Converter={StaticResource Vis}}">
+                                        <TextBlock Text="{ctl:T 'APPS STARTED AFTER SIGN-IN'}" Style="{StaticResource Sect}" />
+                                        <ItemsControl ItemsSource="{Binding Launched}" Focusable="False">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <UniformGrid Columns="2" VerticalAlignment="Top" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel Margin="0,3,18,3" Height="34" ToolTip="{Binding Name}">
+                                                        <ContentPresenter DockPanel.Dock="Left" Content="{Binding}" ContentTemplate="{StaticResource AppSquare}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource PurpleBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Warm}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="{Binding LaunchedMore}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" Margin="0,4,0,0"
+                                                   Visibility="{Binding HasLaunchedMore, Converter={StaticResource Vis}}" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <!-- The apps that took clearly longer than their own usual to start, then what Windows itself
+                                         named for this start (events 101 to 110, where a PC still writes them), with Windows' own figure. -->
+                                    <StackPanel Visibility="{Binding ShowLonger, Converter={StaticResource Vis}}" Margin="0,0,0,14">
+                                        <TextBlock Text="{ctl:T 'APPS THAT TOOK LONGER TO START'}" Style="{StaticResource Sect}" />
+                                        <ItemsControl ItemsSource="{Binding Longer}" Focusable="False">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,4">
+                                                        <HeaderedContentControl.Header>
+                                                            <Grid>
+                                                                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AppSquare}" />
+                                                            </Grid>
+                                                        </HeaderedContentControl.Header>
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                                       Visibility="{Binding HasSub, Converter={StaticResource Vis}}" />
+                                                        </StackPanel>
+                                                    </HeaderedContentControl>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,4" Visibility="{Binding HasLongerNote, Converter={StaticResource Vis}}">
+                                            <HeaderedContentControl.Header>
+                                                <Border Style="{StaticResource IconBox}">
+                                                    <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
+                                                </Border>
+                                            </HeaderedContentControl.Header>
+                                            <TextBlock Text="{Binding LongerNote}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                        </HeaderedContentControl>
+                                    </StackPanel>
+
+                                    <!-- What changed since the start before, from the Timeline: each opens its line there. -->
+                                    <TextBlock Style="{StaticResource Sect}">
+                                        <Run Text="{ctl:T 'CHANGED SINCE THE START BEFORE'}" /><Run Text="  " /><Run Text="{Binding ChangedWhen, Mode=OneWay}" FontWeight="Normal" Foreground="{DynamicResource FaintBrush}" />
+                                    </TextBlock>
+                                    <ItemsControl ItemsSource="{Binding Changes}" Focusable="False" Margin="-8,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource FlatRowButton}" Focusable="True" FocusVisualStyle="{StaticResource FocusRing}" AutomationProperties.Name="{Binding Text}"
+                                                        Command="{Binding DataContext.OpenChangeCommand, ElementName=Page}" CommandParameter="{Binding}">
+                                                    <HeaderedContentControl Style="{StaticResource IconRow}" Margin="8,4">
+                                                        <HeaderedContentControl.Header>
+                                                            <Grid Width="30" Height="30">
+                                                                <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{Binding Brush, Converter={StaticResource ResourceBrush}}" Opacity="0.14" />
+                                                                <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" HorizontalAlignment="Center"
+                                                                           Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                                            </Grid>
+                                                        </HeaderedContentControl.Header>
+                                                        <DockPanel>
+                                                            <TextBlock DockPanel.Dock="Right" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                                                                       VerticalAlignment="Top" Margin="10,9,0,0" />
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </HeaderedContentControl>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,4" Visibility="{Binding NoChanges, Converter={StaticResource Vis}}">
+                                        <HeaderedContentControl.Header>
+                                            <Border Style="{StaticResource IconBox}">
+                                                <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
+                                            </Border>
+                                        </HeaderedContentControl.Header>
+                                        <TextBlock Text="{ctl:T 'Nothing changed since the start before.'}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                    </HeaderedContentControl>
+                                </StackPanel>
+                            </Grid>
+                            <!-- What to try, only when there's something to try (a longer start). -->
+                            <ContentControl Content="{Binding Try}" Focusable="False" IsTabStop="False" Margin="0,18,0,0" Visibility="{Binding Try, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- ── 3. Starts with Windows: what changed in the period beside what starts now ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,14">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding OpenStartupAppsCommand}" ToolTip="{Binding OpenAppsTip}" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{ctl:T 'Open Startup apps'}" />
+                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="{ctl:T 'Starts with Windows'}" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="1.5*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{Binding ChangedCaption}" Style="{StaticResource Sect}" />
+                                <ItemsControl ItemsSource="{Binding ChangedApps}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,4">
+                                                <HeaderedContentControl.Header>
+                                                    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AppSquare}" />
+                                                </HeaderedContentControl.Header>
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding When}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0" VerticalAlignment="Top" />
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0"
+                                                                   Visibility="{Binding HasSub, Converter={StaticResource Vis}}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </HeaderedContentControl>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,4" Visibility="{Binding NoChangedApps, Converter={StaticResource Vis}}">
+                                    <HeaderedContentControl.Header>
+                                        <!-- Nothing changed is a plain fact, so its icon is the quiet one, as on the opened start. -->
+                                        <Border Style="{StaticResource IconBox}">
+                                            <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
+                                        </Border>
+                                    </HeaderedContentControl.Header>
+                                    <TextBlock Text="{Binding NoChangedText}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                </HeaderedContentControl>
+                                <Button Style="{StaticResource CardLink}" HorizontalAlignment="Left" Margin="0,6,0,0" Command="{Binding OpenMoreCommand}" Visibility="{Binding HasMore, Converter={StaticResource Vis}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding MoreText}" />
+                                        <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{Binding AppsCaption}" Style="{StaticResource Sect}" />
+                                <!-- Up to 12 in full (4 rows of 3); more scroll in a box of the same height, its fifth row cut and faded. -->
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                    <ScrollViewer.Style>
+                                        <Style TargetType="ScrollViewer">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AppsScroll}" Value="True">
+                                                    <Setter Property="MaxHeight" Value="206" />
+                                                    <Setter Property="OpacityMask">
+                                                        <Setter.Value>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                                <GradientStop Color="Black" Offset="0" />
+                                                                <GradientStop Color="Black" Offset="0.82" />
+                                                                <GradientStop Color="Transparent" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ScrollViewer.Style>
+                                    <ItemsControl ItemsSource="{Binding Apps}" Focusable="False" Margin="0,0,6,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="3" VerticalAlignment="Top" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,3,14,3" Height="40" ToolTip="{Binding Name}">
+                                                    <ContentPresenter DockPanel.Dock="Left" Content="{Binding}" ContentTemplate="{StaticResource AppSquare}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="{x:Static ctl:TextSize.Body}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Off}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                                   Visibility="{Binding HasSub, Converter={StaticResource Vis}}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

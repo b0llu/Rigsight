@@ -53,7 +53,7 @@ internal sealed class DeviceBatteries : IDisposable
             if (first || Changed(_current, list))
                 Log.Write("devices", list.Count == 0 ? "No wireless device gave a battery level (looked at Logitech receivers, Bluetooth, Xbox controllers)"
                     : "Batteries: " + string.Join(", ", list.Select(d => $"{d.Name} {(d.Percent is double p ? $"{p:0}%" : d.Level?.ToString())}"
-                        + $"{(d.Charging == true ? " charging" : "")}{(d.Connected ? "" : " (not connected, last reading)")} via {d.Via}")));
+                        + $"{(d.Charge == ChargeState.Full ? " full on power" : d.Charging == true ? " charging" : "")}{(d.Connected ? "" : " (not connected, last reading)")} via {d.Via}")));
             first = false;
             _current = list;
             Interlocked.Increment(ref _readings);
@@ -70,7 +70,7 @@ internal sealed class DeviceBatteries : IDisposable
     /// <summary>Whether what would be logged changed: devices, levels (by whole percent), charging or connection.</summary>
     private static bool Changed(IReadOnlyList<DeviceBattery> before, List<DeviceBattery> now) =>
         before.Count != now.Count || before.Zip(now).Any(p => p.First.Key != p.Second.Key || p.First.Percent != p.Second.Percent
-            || p.First.Level != p.Second.Level || p.First.Charging != p.Second.Charging || p.First.Connected != p.Second.Connected);
+            || p.First.Level != p.Second.Level || p.First.Charging != p.Second.Charging || p.First.Charge != p.Second.Charge || p.First.Connected != p.Second.Connected);
 
     /// <summary>
     /// A test copy's made-up devices, from test-devices.json in its data folder, to check how they look (never read by
@@ -81,10 +81,10 @@ internal sealed class DeviceBatteries : IDisposable
         string path = Path.Combine(RigsightPaths.DataDir, "test-devices.json");
         if (!File.Exists(path)) return [];
         return JsonSerializer.Deserialize<List<TestDevice>>(File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } })?
-            .Select(t => new DeviceBattery("test/" + t.Key, t.Name, t.Kind, t.Percent, t.Level, t.Charging, t.Connected, t.Via)).ToList() ?? [];
+            .Select(t => new DeviceBattery("test/" + t.Key, t.Name, t.Kind, t.Percent, t.Level, t.Charging, t.Connected, t.Via) { Charge = t.Full ? ChargeState.Full : t.Charging switch { true => ChargeState.Charging, false => ChargeState.NotCharging, null => ChargeState.Unknown } }).ToList() ?? [];
     }
 
-    private sealed record TestDevice(string Key, string Name, DeviceKind Kind, double? Percent, BatteryLevel? Level, bool? Charging, bool Connected = true, string Via = "Bluetooth");
+    private sealed record TestDevice(string Key, string Name, DeviceKind Kind, double? Percent, BatteryLevel? Level, bool? Charging, bool Connected = true, string Via = "Bluetooth", bool Full = false);
 
     // ── As hardware (sampler thread) ────────────────────────────────────────
 
@@ -110,6 +110,18 @@ internal sealed class DeviceBatteries : IDisposable
     /// <summary>The devices as hardware, in the order they were found (sampler thread).</summary>
     public IEnumerable<IHardware> Hardware => _current.Select(d => _hardware.GetValueOrDefault(d.Key)).OfType<IHardware>();
 
+    /// <summary>
+    /// Sampler thread: what each device says about charging, by its battery reading's id ("charging", "full"); null when
+    /// none says (1.22.0). Sent with each tick, so All sensors shows the bolt or "Full" beside the number.
+    /// </summary>
+    public Dictionary<string, string>? Charges()
+    {
+        Dictionary<string, string>? map = null;
+        foreach (var hw in _hardware.Values)
+            if (DeviceCharge.Wire(hw.Charge) is { } word) (map ??= [])[hw.Battery.Identifier.ToString()] = word;
+        return map;
+    }
+
     /// <summary>The reading behind a sensor of theirs, by the sensor's identifier ("/device/…/battery/0").</summary>
     public DeviceBattery? Of(string sensorId) =>
         _current.FirstOrDefault(d => sensorId.StartsWith(DeviceHardware.IdOf(d.Key) + "/", StringComparison.Ordinal));
@@ -134,6 +146,8 @@ internal sealed class DeviceBatteries : IDisposable
 
         public DeviceKind Kind { get; private set; }
         public string Via { get; private set; } = "";
+        /// <summary>What it says about charging (1.22.0): sent to the app with each tick, drawn on the taskbar.</summary>
+        public ChargeState Charge { get; private set; }
         public BatterySensor Battery { get; }
 
         public void Set(DeviceBattery d)
@@ -141,6 +155,7 @@ internal sealed class DeviceBatteries : IDisposable
             Name = d.Name;
             Kind = d.Kind;
             Via = d.Via;
+            Charge = d.Charge;
             Battery.Value = d.Percent is double p ? (float)p : d.Level is { } l ? (float)Units.BatteryLevelValue((int)l) : null;
         }
 

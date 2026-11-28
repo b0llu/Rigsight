@@ -261,7 +261,13 @@ internal static partial class WidgetRenderer
             }
         }
 
-        private float TextWidth(string text, Font font) => text.Length == 0 ? 0 : DirectWriteText.Width(text, font) ?? _mg.MeasureString(text, font, PointF.Empty, _format).Width;
+        private float TextWidth(string text, Font font)
+        {
+            // A charging device's number carries its bolt (see BoltMark): the digits' width and the bolt's.
+            var (digits, bolt) = SplitBolt(text);
+            float width = digits.Length == 0 ? 0 : DirectWriteText.Width(digits, font) ?? _mg.MeasureString(digits, font, PointF.Empty, _format).Width;
+            return bolt ? width + BoltWidth(font.Size) : width;
+        }
 
         /// <summary>A text's place: as wide as it is now or as the widest it's been (<paramref name="reserve"/>).</summary>
         private float Slot(string text, string reserve, Font font) => Math.Max(TextWidth(text, font), TextWidth(reserve, font));
@@ -533,6 +539,13 @@ internal static partial class WidgetRenderer
         private void Text(Graphics g, string text, Font font, Color color, float x, float y, bool outlined = false)
         {
             if (text.Length == 0) return;
+            if (SplitBolt(text) is (var digits, true))
+            {
+                // The number, then its bolt in the number's colour on the same baseline.
+                Text(g, digits, font, color, x, y, outlined);
+                DrawBolt(g, x + TextWidth(digits, font), y + Ascent(font), font.Size, color);
+                return;
+            }
             // DirectWrite, as Windows' own taskbar text (see DirectWriteText); as before when it can't.
             if (DirectWriteText.Draw(g, text, font, color, x, (int)MathF.Round(y + Ascent(font)), outlined ? Halo : null)) return;
             using var brush = new SolidBrush(color);
@@ -845,7 +858,13 @@ internal static partial class WidgetRenderer
             }
         }
 
-        private float TextWidth(string text, Font font) => text.Length == 0 ? 0 : DirectWriteText.Width(text, font) ?? _mg.MeasureString(text, font, PointF.Empty, _format).Width;
+        private float TextWidth(string text, Font font)
+        {
+            // A charging device's number carries its bolt (see BoltMark): the digits' width and the bolt's.
+            var (digits, bolt) = SplitBolt(text);
+            float width = digits.Length == 0 ? 0 : DirectWriteText.Width(digits, font) ?? _mg.MeasureString(digits, font, PointF.Empty, _format).Width;
+            return bolt ? width + BoltWidth(font.Size) : width;
+        }
 
         /// <summary>A part's icon in place of a line's word: 13 px at 100%, the size it's drawn for (10 on a short taskbar).</summary>
         private float IconHeight => PartIconHeight(_roomy ? 13 : 10, _scale);
@@ -889,12 +908,14 @@ internal static partial class WidgetRenderer
                         using var nameBrush = new SolidBrush(l.LabelColor);
                         g.DrawString(l.Label, _nameFont, nameBrush, nx, ny, _format);
                     }
-                    if (!DirectWriteText.Draw(g, l.Text, _valueFont, l.Color, numberX, line))
+                    var (number, bolt) = SplitBolt(l.Text);
+                    if (!DirectWriteText.Draw(g, number, _valueFont, l.Color, numberX, line))
                     {
                         using var brush = new SolidBrush(l.Color);
                         var (vx, vy) = Snap(_valueFont, numberX, baseline - Ascent(_valueFont));
-                        g.DrawString(l.Text, _valueFont, brush, vx, vy, _format);
+                        g.DrawString(number, _valueFont, brush, vx, vy, _format);
                     }
+                    if (bolt) DrawBolt(g, numberX + TextWidth(number, _valueFont), line, _valueFont.Size, l.Color);
                 }
                 x += width + _gap;
             }

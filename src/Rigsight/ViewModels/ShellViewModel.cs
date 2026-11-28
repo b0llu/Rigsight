@@ -83,9 +83,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
         Power = new PowerViewModel(Reports, Live, Settings);
-        Latency = new LatencyViewModel(Reports, Live, Settings) { OpenChange = OpenChange, GoTo = page => CurrentPage = page };
+        Latency = new LatencyViewModel(Reports, Live, Settings) { OpenChange = OpenChange, GoTo = page => CurrentPage = page, RestartWithAdmin = StartAgentCommand, CanRestartAdmin = () => !StandardAccount };
         // A Timeline driver line opens on the Latency page (issue #15): the mark's story, then the driver; Back returns to Timeline.
         Timeline.OpenDelayHere = mark => { _ = Latency.ShowMarkAsync(mark, fromTimeline: true); CurrentPage = "latency"; };
+        Startup = new StartupViewModel(Reports) { OpenTimelineAt = OpenTimelineAt, RestartWithAdmin = StartAgentCommand };
         Network = new NetworkViewModel(Reports, Live, Settings);
         // An app row on the Network page opens that app on the Apps page, for the same period (its internet use is there).
         Network.OpenAppRequested += (exe, unit, anchor) =>
@@ -389,6 +390,15 @@ public sealed partial class ShellViewModel : ObservableObject
     public FansViewModel Fans { get; }
     public PowerViewModel Power { get; }
     public LatencyViewModel Latency { get; }
+    public StartupViewModel Startup { get; }
+
+    /// <summary>Opens the Timeline at a day (the Start-up page's change lines and "N more on Timeline").</summary>
+    private async void OpenTimelineAt(DateTime day)
+    {
+        await Timeline.LoadAsync(onlyIfChanged: true);
+        CurrentPage = "timeline";
+        Timeline.JumpTo(day);
+    }
 
     /// <summary>
     /// Tells the agent whether the Latency page is on screen (issue #15): while it is, the app wake-up check runs 64 times a
@@ -695,6 +705,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "fans": await Fans.RefreshAsync(); break;
             case "power": await Power.RefreshAsync(); break;
             case "latency": Latency.NoAdmin = IsConnected && !AgentIsAdmin; await Latency.RefreshAsync(); break;
+            case "startup": Startup.NoAdmin = IsConnected && !AgentIsAdmin; await Startup.RefreshAsync(); break;
             case SidebarViewModel.AllPagesKey: AllPages.RefreshFigures(); break;
             case "network": await Network.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
@@ -764,6 +775,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "power": if (Power.IncludesToday && _tickCount % 5 == 0) await Power.RefreshAsync(); break;
                 // The live part comes with each tick; the period's figures move slowly: read again every 5th minute.
                 case "latency": if (Latency.IncludesToday && Latency.IsListShown && _tickCount % 5 == 0) await Latency.RefreshAsync(); break;
+                // Starts come a few a day, and Windows' record of one minutes after it: every 5th minute is plenty.
+                case "startup": if (Startup.IncludesToday && _tickCount % 5 == 0) await Startup.RefreshAsync(); break;
                 case SidebarViewModel.AllPagesKey: AllPages.RefreshFigures(); break;
                 case "network": await Network.RefreshAsync(); break;
                 case "temperatures": if (ChartDueNow) await LoadTemperatureHistoryAsync(); break;
@@ -807,6 +820,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Fans.NewDay(was);
         Power.NewDay(was);
         Latency.NewDay(was);
+        Startup.NewDay(was);
         Network.NewDay(was);
         Live.NewDay(was);
         Controls.PeriodPicker.OnDayChanged();
@@ -938,6 +952,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case Core.Reports.InsightOpens.Network: CurrentPage = "network"; break;
             case Core.Reports.InsightOpens.Storage: CurrentPage = "storage"; break;
             case Core.Reports.InsightOpens.Game when open.Game is { } game: OpenGame(game); break;
+            case Core.Reports.InsightOpens.Startup: Startup.ShowDay(open.From); CurrentPage = "startup"; break;
         }
     }
 

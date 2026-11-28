@@ -63,7 +63,7 @@ public sealed record Insight(string Icon, string Text, InsightTone Tone = Insigh
 public sealed record NoticeText(string Title, string Body);
 
 /// <summary>A page a line opens: the proof of something that moved, or an event to look at.</summary>
-public enum InsightOpens { None, Usual, Crashes, Temperatures, Fans, Network, Storage, Game }
+public enum InsightOpens { None, Usual, Crashes, Temperatures, Fans, Network, Storage, Game, Startup }
 
 /// <summary>Minutes a part spent over its warm line (<see cref="Report.HotLine"/>) put down to one app.</summary>
 public sealed record HotShare(string App, int Minutes);
@@ -462,6 +462,6 @@ public sealed class Report
         ReportRange.Day when From.Date == DateTime.Today.AddDays(-1) => Lang.T("Yesterday"),
         ReportRange.Day => From.ToString("dddd, d MMMM"),
         ReportRange.Week or ReportRange.Month or ReportRange.Year => PeriodWords.Label(Range, From, DateTime.Today),
-        _ => From.ToString("MMMM yyyy"),
+        _ => TimeText.At(From, "MMMM yyyy"),
     };
 }

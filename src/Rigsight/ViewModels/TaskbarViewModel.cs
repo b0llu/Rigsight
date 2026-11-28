@@ -1359,7 +1359,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
             Second: row.Id == TrayParts.NetBoth ? _live.NetSensors[1].Value : null, Cores: cores,
             Gray: row.IsGray, Tiles: row.OnTile, Letters: row.Letters, PairNext: row.PairNext, GraphBehind: row.GraphBehind,
             Icon: row.Naming == TrayName.Word ? null : TrayParts.IconKey(row.Part, s.Kind, row.Id, s.Device), IconBeside: row.Naming == TrayName.Beside,
-            PartIcon: TrayParts.IconKey(row.Part, s.Kind, row.Id, s.Device));
+            PartIcon: TrayParts.IconKey(row.Part, s.Kind, row.Id, s.Device), Charge: s.Charge);
     }
 
     /// <summary>Which sizes fit the taskbar now, why the others don't, and which spots show smaller for now.</summary>

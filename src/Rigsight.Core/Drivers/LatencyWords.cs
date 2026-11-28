@@ -13,7 +13,7 @@ public static class LatencyWords
     /// A delay as said on the page: one decimal from 1 ms (as the Timeline says it, "6.8 ms"), two under it ("0.42 ms"),
     /// "under 0.01 ms" for the shortest.
     /// </summary>
-    public static string Ms(double us) => us >= 1000 ? DriverWords.Ms(us) : us < 10 ? Lang.T("under 0.01 ms") : Lang.T($"{us / 1000.0:0.00} ms");
+    public static string Ms(double us) => us >= 100_000 ? Lang.T($"{us / 1000.0:N0} ms") : us >= 1000 ? DriverWords.Ms(us) : us < 10 ? Lang.T("under 0.01 ms") : Lang.T($"{us / 1000.0:0.00} ms");
 
     /// <summary>The figure alone, for the big number beside its small "ms": "6.8", "0.42", "0.01".</summary>
     public static string Number(double us) => us >= 1000 ? $"{Math.Round(us / 1000.0, 1):0.0}" : $"{Math.Max(0.01, us / 1000.0):0.00}";
@@ -46,14 +46,14 @@ public static class LatencyWords
             _ => "",
         };
 
-    /// <summary>"Drivers went over 1 ms 2,500 times, 1,964 of them your GPU's driver." The driver with the most is named when it had most of them.</summary>
+    /// <summary>"Driver delays went over 1 ms 2,500 times, 1,964 of them your GPU's driver." The driver with the most is named when it had most of them.</summary>
     public static string OverLine(int total, LatencyDriver? most)
     {
         if (total == 0) return Lang.T("No driver kept a CPU core busy for 1 ms or more.");
-        string all = total == 1 ? Lang.T("A driver went over 1 ms once.") : Lang.T($"Drivers went over 1 ms {total:N0} times.");
+        string all = total == 1 ? Lang.T("A driver delay went over 1 ms once.") : Lang.T($"Driver delays went over 1 ms {total:N0} times.");
         if (most is null || most.Long * 2 < total || total == 1) return all;
         string who = Mid(Who(most.Driver, most.Part));
-        return most.Long == total ? Lang.T($"Drivers went over 1 ms {total:N0} times, all of them from {who}.") : Lang.T($"Drivers went over 1 ms {total:N0} times, {most.Long:N0} of them from {who}.");
+        return most.Long == total ? Lang.T($"Driver delays went over 1 ms {total:N0} times, all of them from {who}.") : Lang.T($"Driver delays went over 1 ms {total:N0} times, {most.Long:N0} of them from {who}.");
     }
 
     /// <summary>Who, in the middle of a sentence: "your GPU", "Windows' graphics system" (a name that starts with Windows keeps its capital).</summary>
@@ -109,4 +109,7 @@ public static class LatencyWords
 
     /// <summary>The line in place of the check while it's off.</summary>
     public static string Off => Lang.T("The app wake-up check is off. Driver delays are still recorded.");
+
+    /// <summary>The check off while RigSight runs without admin rights: driver delays aren't being recorded either.</summary>
+    public static string OffNoAdmin => Lang.T("The app wake-up check is off.");
 }

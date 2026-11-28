@@ -78,6 +78,9 @@ internal sealed class SensorHost
     /// <summary>The wireless devices' batteries (their readings, charging and connection).</summary>
     public Devices.DeviceBatteries Devices => _devices;
 
+    /// <summary>Sampler thread: each device's charging by its battery reading's id, for the app's tick (1.22.0); null when none says.</summary>
+    public Dictionary<string, string>? Charges() => _devices.Charges();
+
     /// <summary>
     /// Sampler thread: the devices' newest battery readings into their sensors. True when a device came or went: the
     /// list was made again (the app needs to hear about it).

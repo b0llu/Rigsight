@@ -151,4 +151,40 @@ internal static partial class WidgetRenderer
         }
         g.Restore(state);
     }
+
+    // ── The charging bolt (1.22.0) ───────────────────────────────────────
+
+    /// <summary>
+    /// What a reading's number ends with while its device charges or is full on power (see DeviceCharge.TileBolt): drawn
+    /// as a bolt of RigSight's own after the digits, in the number's colour, never as the font's character (the strip's
+    /// fonts have none, and an emoji would come in colour).
+    /// </summary>
+    internal const char BoltMark = '\u26A1';
+
+    /// <summary>A number's text without its bolt, and whether it had one.</summary>
+    internal static (string Text, bool Bolt) SplitBolt(string text) =>
+        text.Length > 0 && text[^1] == BoltMark ? (text[..^1], true) : (text, false);
+
+    /// <summary>The room a bolt takes after a number in a font <paramref name="size"/> px tall: the gap before it and its width, on whole pixels.</summary>
+    internal static float BoltWidth(float size) => BoltGap(size) + MathF.Round(size * 0.42f);
+
+    private static float BoltGap(float size) => MathF.Max(1, MathF.Round(size * 0.1f));
+
+    /// <summary>A bolt as tall as the digits of a font <paramref name="size"/> px tall, standing on <paramref name="baseline"/>, after its gap from <paramref name="x"/>.</summary>
+    internal static void DrawBolt(Graphics g, float x, float baseline, float size, Color color)
+    {
+        float w = MathF.Round(size * 0.42f), h = MathF.Round(size * 0.72f);
+        float l = MathF.Round(x + BoltGap(size)), t = MathF.Round(baseline) - h;
+        PointF[] bolt =
+        [
+            new(l + w * 0.66f, t), new(l + w * 0.04f, t + h * 0.58f), new(l + w * 0.44f, t + h * 0.58f),
+            new(l + w * 0.30f, t + h), new(l + w * 0.96f, t + h * 0.40f), new(l + w * 0.56f, t + h * 0.40f),
+        ];
+        var state = g.Save();
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.None;
+        using var brush = new SolidBrush(color);
+        g.FillPolygon(brush, bolt);
+        g.Restore(state);
+    }
 }

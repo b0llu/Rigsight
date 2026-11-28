@@ -49,7 +49,8 @@ internal sealed class WidgetData
     public WidgetData Copy() => (WidgetData)MemberwiseClone();
 }
 
-internal sealed record OverlaySensorReading(string Label, SensorKind Kind, double? Value);
+/// <remarks>Since 1.22.0 a wireless device's <paramref name="Charge"/>: a bolt after its number on a widget.</remarks>
+internal sealed record OverlaySensorReading(string Label, SensorKind Kind, double? Value, ChargeState Charge = ChargeState.Unknown);
 
 /// <summary>Draws widget bitmaps with GDI+ (per-pixel alpha, no UI framework needed).</summary>
 internal static partial class WidgetRenderer
@@ -347,7 +348,8 @@ internal static partial class WidgetRenderer
     /// One reading as a widget draws it: its label and colour, its value as text and the value's colour
     /// (temperatures by how hot), the number itself (for gauges and graphs), and what it is.
     /// </summary>
-    private readonly record struct Reading(string Label, Color Accent, string Text, Color ValueColor, double? Value, SensorKind Kind, OverlayMetric? Metric);
+    private readonly record struct Reading(string Label, Color Accent, string Text, Color ValueColor, double? Value, SensorKind Kind, OverlayMetric? Metric,
+        ChargeState Charge = ChargeState.Unknown);
 
     private static readonly Color SensorAccent = Color.FromArgb(56, 189, 248);
 
@@ -396,8 +398,12 @@ internal static partial class WidgetRenderer
         }
         var sensor = WidgetCatalog.Sensor(item.Id) is { } id ? d.Readings.GetValueOrDefault(id) : null;
         var sensorKind = sensor?.Kind ?? SensorKind.Factor;
-        return new Reading(item.Label ?? sensor?.Label ?? Lang.T("Sensor"), SensorAccent, Units.Short(sensorKind, sensor?.Value),
-            sensorKind == SensorKind.Temperature ? TempColor(sensor?.Value, p) : sensor?.Value is null ? p.Faint : p.Text, sensor?.Value, sensorKind, null);
+        // A wireless device's battery (1.22.0): coloured by its level as everywhere, with a bolt while it charges or is full on power.
+        bool battery = sensorKind == SensorKind.Battery && sensor?.Value is not null;
+        string bolt = battery && DeviceCharge.TileBolt(sensor!.Charge) ? BoltMark.ToString() : "";
+        return new Reading(item.Label ?? sensor?.Label ?? Lang.T("Sensor"), SensorAccent, Units.Short(sensorKind, sensor?.Value) + bolt,
+            sensorKind == SensorKind.Temperature ? TempColor(sensor?.Value, p) : battery && !Gray ? TrayColor(SensorKind.Battery, sensor!.Value, p.Light) : sensor?.Value is null ? p.Faint : p.Text,
+            sensor?.Value, sensorKind, null, battery ? sensor!.Charge : ChargeState.Unknown);
     }
 
     /// <summary>An app's name on a widget: at most 16 letters, so one long name doesn't stretch the whole widget.</summary>
@@ -470,6 +476,8 @@ internal static partial class WidgetRenderer
         OverlayMetric.Fps when d.Frame is FrameStats f => f.OnePercentLow is double low ? Lang.T($"{f.FrameTimeMs:0.0} ms  ·  1% low {low:0}") : $"{f.FrameTimeMs:0.0} ms",
         OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow when d.Frame is null =>
             d.RtssRunning ? Lang.T("Waiting for a game") : Lang.T("Needs RivaTuner"),
+        null when r.Kind == SensorKind.Battery && r.Charge == ChargeState.Charging => Lang.T("Charging"),
+        null when r.Kind == SensorKind.Battery && r.Charge == ChargeState.Full => Lang.C("battery", "Full"),
         _ => null,
     };
 
@@ -847,6 +855,15 @@ internal static partial class WidgetRenderer
     private static void Text(Graphics g, string text, float px, FontStyle style, Color color, float x, float y,
         bool semibold = false, float maxWidth = 0)
     {
+        if (SplitBolt(text) is (var digits, true))
+        {
+            // A charging device's number, then its bolt (see BoltMark) on the digits' baseline, in the number's colour.
+            Text(g, digits, px, style, color, x, y, semibold, maxWidth);
+            var face = MakeFont(px, style, semibold).FontFamily;
+            float baseline = y + px * face.GetCellAscent(style) / face.GetEmHeight(style);
+            DrawBolt(g, x + Measure(g, digits, px, style, semibold), baseline, px, color);
+            return;
+        }
         var font = ForText(MakeFont(px, style, semibold), text);
         using var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
         fmt.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces;
@@ -876,6 +893,7 @@ internal static partial class WidgetRenderer
 
     private static float Measure(Graphics g, string text, float px, FontStyle style, bool semibold = false)
     {
+        if (SplitBolt(text) is (var digits, true)) return Measure(g, digits, px, style, semibold) + BoltWidth(px);
         var font = ForText(MakeFont(px, style, semibold), text);
         return g.MeasureString(text, font, int.MaxValue, StringFormat.GenericTypographic).Width;
     }

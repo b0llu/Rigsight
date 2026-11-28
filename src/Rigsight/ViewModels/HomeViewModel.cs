@@ -257,7 +257,10 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     // (a game hotter than usual, the PC's problems, a fan) isn't said here again: one fact, one line on Home. Each line is
     // read as its one statement (Insight.Line), opening a page only where it has more.
     private static readonly HashSet<string> InHealth = ["usual-heat", "usual-problems", "usual-power", "fan-stopped", "fan-slower", "fan-older"];
-    public List<Insight> TodayInsights => HomeCards.HomeStandOut(Today, InHealth);
+    public List<Insight> TodayInsights => Core.Startup.StartupReport.WithStartLine(HomeCards.HomeStandOut(Today, InHealth), StartLine);
+
+    /// <summary>Today's first full start, when it was clearly longer than its usual (1.22.0): said in place of "Day started at …".</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(TodayInsights))] private Insight? _startLine;
     /// <summary>A dashboard's highlights: today's lines with what PC health says on Home (a dashboard has no PC health).</summary>
     public List<Insight> DashboardInsights => HomeCards.StandOut(Today);
 
@@ -340,6 +343,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         OnPropertyChanged(nameof(Greeting));
         OnPropertyChanged(nameof(DateText));
         Today = await reports.BuildAsync(ReportRange.Day, DateTime.Today);
+        StartLine = await reports.QueryAsync((db, _) => Core.Startup.StartupReport.HomeInsight(db, DateTime.Now));
         await LoadCardsAsync();
         if (_recapsFor != DateTime.Today)
         {
@@ -532,7 +536,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     internal static HomeOpen OpenOf(InsightOpens opens, string? key, Report? r)
     {
         var (range, from, to) = r is null ? (ReportRange.Day, DateTime.Today, DateTime.Today.AddDays(1)) : (r.Range, r.From, r.To);
-        if (key is not ("crash" or "app-crashes") && ReportBuilder.IsDayLike(range, from, to))
+        if (key is not ("crash" or "app-crashes" or Core.Startup.StartupReport.HomeKey) && ReportBuilder.IsDayLike(range, from, to))
         {
             var end = to.TimeOfDay == TimeSpan.Zero ? to : to.Date.AddDays(1);
             (range, from, to) = (ReportRange.Custom, end.AddDays(-7), end);

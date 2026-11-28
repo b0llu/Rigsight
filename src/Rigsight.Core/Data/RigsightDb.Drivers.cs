@@ -301,6 +301,14 @@ public sealed partial class RigsightDb
         return cmd.ExecuteScalar() is long ts ? ts : null;
     }
 
+    /// <summary>The first hour the app wake-up check was recorded (Unix seconds), or null when it never was.</summary>
+    public long? FirstWakeHour()
+    {
+        if (!HasTable("wake_hour")) return null;
+        using var cmd = Cmd("SELECT min(ts) FROM wake_hour");
+        return cmd.ExecuteScalar() is long ts ? ts : null;
+    }
+
     /// <summary>The app in front each minute from <paramref name="from"/> to <paramref name="to"/> (minutes with one only).</summary>
     public Dictionary<long, long> GetFrontApps(long from, long to)
     {

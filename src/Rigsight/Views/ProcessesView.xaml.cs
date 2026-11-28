@@ -49,6 +49,28 @@ public partial class ProcessesView : UserControl
         if (LiveCard.Height != height) LiveCard.Height = height;
     }
 
+    // ── Custom on an opened app (1.22.0) ──
+
+    /// <summary>
+    /// Custom in an opened app's box: the shared day calendar (see <see cref="DayRangeCalendar"/>) opens beside the segments;
+    /// the days picked become the period. Closed without a pick, the segments show the period as it was.
+    /// </summary>
+    private void Custom_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ProcRow { History: { } history } } button) return;
+        if (button.TemplatedParent is not ContentPresenter presenter || presenter.ContentTemplate is not { } template) return;
+        if (template.FindName("RangePopup", presenter) is not Popup popup || template.FindName("Cal", presenter) is not Calendar cal
+            || template.FindName("RangeHint", presenter) is not TextBlock hint) return;
+        if (popup.Tag is not DayRangeCalendar calendar)
+        {
+            calendar = new DayRangeCalendar(popup, cal, hint, () => (button.DataContext as ProcRow)?.History);
+            popup.Tag = calendar;
+            popup.Closed += (_, _) => (button.DataContext as ProcRow)?.History?.KeepPeriod();
+        }
+        history.KeepPeriod();
+        calendar.Open();
+    }
+
     // ── Opening an app ──
 
     private void App_Click(object sender, MouseButtonEventArgs e)

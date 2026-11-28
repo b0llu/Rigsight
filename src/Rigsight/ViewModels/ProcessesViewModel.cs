@@ -350,9 +350,13 @@ public sealed partial class ProcessesViewModel : ObservableObject
         var history = row.History ??= new ProcHistory();
         if (!history.IsLoading && DateTime.Now - history.ReadAt < HistoryAge) return;
         history.Fill(row, DateTime.Now);
+        // Custom: the days picked are read for this app, back as far as the history goes (1.22.0).
+        history.ReadRange ??= (from, to) => _reports.AppRangeAsync(row.Exe, from, to);
+        var first = history.FirstDay is null ? _reports.FirstDayAsync() : null;
         var energy = _reports.PowerWhileBusyAsync(row.Exe);
         var past = await _reports.AppPastAsync(row.Exe);
         history.Energy = await energy;
+        if (first is not null) history.FirstDay = await first;
         // Nothing read (no history yet, or it couldn't be opened): the box keeps to what the app itself says.
         history.Fill(row, past, DateTime.Now);
     }

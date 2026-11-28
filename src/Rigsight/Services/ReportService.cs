@@ -114,6 +114,9 @@ public sealed class ReportService(SettingsModel settings)
     /// <summary>What is on record about one running app (the Processes page's box under its row).</summary>
     public Task<AppPast?> AppPastAsync(string exe) => Run(db => AppPast.Read(db, exe, DateTime.Now));
 
+    /// <summary>One running app over days picked in its box on the Processes page (Custom, 1.22.0), both days in it.</summary>
+    public Task<AppRange?> AppRangeAsync(string exe, DateTime from, DateTime to) => Run(db => AppRange.Read(db, exe, from, to));
+
     /// <summary>Every app's CPU time, GPU time, running time and memory today (the Processes page's LOAD TODAY), by exe.</summary>
     public Task<Dictionary<string, AppDayUse>?> AppsTodayAsync() => Run(db => AppLoad.ReadToday(db, DateTime.Now));
 
@@ -703,7 +706,7 @@ public sealed class ReportService(SettingsModel settings)
             var games = byId.Keys.Where(id => ReportBuilder.CategoryOf(byId, s, id) == AppCategory.Game).ToHashSet();
             marks.AddRange(Core.Drivers.DriverDelays.Marks(db, games).Select(d => new TimelineMark(TimeUtil.FromUnix(d.From), d.Title) { Delay = d, Detail = d.Detail }));
             marks.Sort((a, b) => a.Time.CompareTo(b.Time));
-            return new TimelineData(changes, problems, db.GetInventory()) { Results = results, Marks = marks };
+            return new TimelineData(changes, problems, db.GetInventory()) { Results = results, Marks = marks, Drivers = db.GetDriverHistory(DateTime.Now, changes) };
         });
     }
 
@@ -724,7 +727,11 @@ public sealed class ReportService(SettingsModel settings)
             long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
             var marks = Core.Drivers.DriverDelays.Marks(db, games).Where(m => m.From >= f && m.From < t).ToList();
             string? app = report.LongestApp is long id && apps.ContainsKey(id) ? ReportBuilder.NameOf(apps, s, id) : null;
-            return new ViewModels.LatencyPage(report, marks, app);
+            // The games in front in the chart's hours, by name and with their own icons (1.22.0's hover).
+            var front = report.Slots.Select(x => x.Game).OfType<long>().Distinct().Where(apps.ContainsKey)
+                .ToDictionary(g => g, g => (ReportBuilder.NameOf(apps, s, g), apps[g].Path));
+            IconCache.Warm(front.Values.Select(v => v.Path));
+            return new ViewModels.LatencyPage(report, marks, app, front);
         });
     }
 
@@ -810,6 +817,9 @@ public sealed record TimelineData(List<Core.Stability.SystemChange> Changes, Lis
 
     /// <summary>The problems marked from the tray's "Something just went wrong", oldest first.</summary>
     public List<TimelineMark> Marks { get; init; } = [];
+
+    /// <summary>Every device's driver and each version it has had (empty before the agent's first look).</summary>
+    public Core.Stability.DriverHistory? Drivers { get; init; }
 }
 
 /// <summary>

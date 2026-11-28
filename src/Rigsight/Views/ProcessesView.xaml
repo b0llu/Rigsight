@@ -131,7 +131,7 @@
                             <ctl:Spinner DockPanel.Dock="Right" Late="True" Margin="12,0,0,0" VerticalAlignment="Top"
                                          Visibility="{Binding History.IsLoading, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
                             <!-- Both charts and the CPU time fact over today or the days before, once CPU time is on record. -->
-                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Background="{DynamicResource SurfaceBrush}" Margin="12,-4,0,0" VerticalAlignment="Top"
+                            <Border x:Name="PeriodHost" DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Background="{DynamicResource SurfaceBrush}" Margin="12,-4,0,0" VerticalAlignment="Top"
                                     Visibility="{Binding History.HasCpu, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Today'}"
@@ -140,6 +140,22 @@
                                                  IsChecked="{Binding History.Period, Converter={StaticResource Equals}, ConverterParameter=Week}" />
                                     <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Last 30 days'}"
                                                  IsChecked="{Binding History.Period, Converter={StaticResource Equals}, ConverterParameter=Month}" />
+                                    <!-- Custom (1.22.0): the same day calendar as the other pages, beside the segments; picked only once
+                                         its days are, so a group of its own (the others stay lit while the calendar is open). -->
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T Custom}" GroupName="{Binding Exe, StringFormat='custom-{0}'}" Click="Custom_Click"
+                                                 IsChecked="{Binding History.Period, Converter={StaticResource Equals}, ConverterParameter=Custom, Mode=OneWay}" />
+                                    <Popup x:Name="RangePopup" PlacementTarget="{Binding ElementName=PeriodHost}" Placement="Custom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                                        <ctl:SmoothBorder Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                                          CornerRadius="{x:Static ctl:Corner.Tile}" Padding="10" Margin="0,0,8,8">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                                            </Border.Effect>
+                                            <StackPanel>
+                                                <Calendar x:Name="Cal" SelectionMode="SingleRange" FirstDayOfWeek="Monday" AutomationProperties.Name="{ctl:T 'Days to show'}" />
+                                                <TextBlock x:Name="RangeHint" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="8,2,8,4" />
+                                            </StackPanel>
+                                        </ctl:SmoothBorder>
+                                    </Popup>
                                 </StackPanel>
                             </Border>
                             <ItemsControl ItemsSource="{Binding History.Facts}" Focusable="False">

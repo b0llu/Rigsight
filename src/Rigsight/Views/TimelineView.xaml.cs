@@ -18,6 +18,7 @@ public partial class TimelineView : UserControl
             if (_vm is null) return;
             _vm.JumpRequested += OnJump;
             _vm.ChangeOpened += OnChangeOpened;
+            _vm.DriverViewChanged += OnDriverViewChanged;
             _vm.Days.CollectionChanged += OnDaysChanged;
             // Coming back to the page: its first days are already laid out, so nothing scrolls or changes to ask for more.
             FillAhead();
@@ -35,6 +36,7 @@ public partial class TimelineView : UserControl
             {
                 _vm.JumpRequested -= OnJump;
                 _vm.ChangeOpened -= OnChangeOpened;
+                _vm.DriverViewChanged -= OnDriverViewChanged;
                 _vm.Days.CollectionChanged -= OnDaysChanged;
                 // A driver mark opened on the Latency page: the list stays as it is, so Back finds the same place.
                 if (_vm.KeepPlace)
@@ -97,6 +99,20 @@ public partial class TimelineView : UserControl
     private void Change_Loaded(object sender, RoutedEventArgs e) =>
         _changeScroller ??= (sender as FrameworkElement)?.FindName("ChangeScroller") as ScrollViewer;
 
+
+    // A driver or every driver opened inside Timeline (1.22.0): each starts at its top. Their views are built the first
+    // time one opens (LazyTabs): their scrollers are found as they load.
+    private ScrollViewer? _driverScroller, _everyScroller;
+
+    private void DriverScroller_Loaded(object sender, RoutedEventArgs e) => _driverScroller ??= sender as ScrollViewer;
+
+    private void EveryScroller_Loaded(object sender, RoutedEventArgs e) => _everyScroller ??= sender as ScrollViewer;
+
+    private void OnDriverViewChanged()
+    {
+        _driverScroller?.ScrollToTop();
+        _everyScroller?.ScrollToTop();
+    }
 
     private void OnDaysChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => FillAhead();
 
@@ -166,7 +182,9 @@ public sealed class TimelineEntryTemplates : DataTemplateSelector
     public DataTemplate? Result { get; set; }
     public DataTemplate? Game { get; set; }
     public DataTemplate? Delay { get; set; }
+    public DataTemplate? Driver { get; set; }
 
     public override DataTemplate? SelectTemplate(object item, DependencyObject container) =>
-        item is not TimelineEntry entry ? Plain : entry.IsDelay ? Delay : entry.IsProblem ? Problem : entry.HasResult ? Result : entry.HasChildren ? Rich : entry.GameKey is not null ? Game : Plain;
+        item is not TimelineEntry entry ? Plain : entry.IsDelay ? Delay : entry.IsProblem ? Problem : entry.HasResult ? Result : entry.HasChildren ? Rich
+        : entry.IsDriverLine ? Driver : entry.GameKey is not null ? Game : Plain;
 }

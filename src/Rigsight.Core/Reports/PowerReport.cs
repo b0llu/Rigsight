@@ -42,6 +42,12 @@ public sealed class PowerReport
     public string? GameLine { get; init; }
     public bool GameLineWarm { get; init; }
 
+    /// <summary>
+    /// Since 1.22.0, for the chart's hover: each day's usual energy (Wh), the same weekday's average over the 4 weeks before
+    /// it that were recorded, by the day's local midnight; days with none are left out. Only for a chart of days.
+    /// </summary>
+    public IReadOnlyDictionary<DateTime, double> DayUsualWh { get; init; } = new Dictionary<DateTime, double>();
+
     /// <summary>How many whole days the period covers (for "about N kWh a day"); 0 for a day.</summary>
     public int Days { get; init; }
 
@@ -81,15 +87,34 @@ public sealed class PowerReport
 
         var (change, reason) = cpu is null && gpu is null ? ("", "") : Compare(db, period, from, to, wh, parts.GameMinutes, apps, nameOf, games);
         var (gameLine, warm) = GamePower(db, from, to, apps, nameOf);
+        // Each day's usual for its hover: the 4 weeks before the period read once, with the period's own days.
+        var usual = new Dictionary<DateTime, double>();
+        if (step == PowerStep.Day && buckets.Count > 0)
+        {
+            var byDay = db.GetPowerBuckets(Unix(from.Date.AddDays(-28)), f, PowerStep.Day).Concat(buckets)
+                .GroupBy(b => TimeUtil.FromUnix(b.Start).Date).ToDictionary(g => g.Key, g => g.Sum(b => b.Wh));
+            foreach (var b in buckets)
+                if (UsualOf(TimeUtil.FromUnix(b.Start).Date, byDay) is double u) usual[TimeUtil.FromUnix(b.Start).Date] = u;
+        }
         return new PowerReport
         {
             Period = period, Step = step, From = from, To = to, CpuWh = cpu, GpuWh = gpu, Buckets = buckets, Apps = apps, Parts = parts,
-            Change = change, Reason = reason, GameLine = gameLine, GameLineWarm = warm,
+            Change = change, Reason = reason, GameLine = gameLine, GameLineWarm = warm, DayUsualWh = usual,
             Days = step == PowerStep.Hour ? 0 : Math.Max(1, (int)Math.Round((Min(to, now.Date.AddDays(1)) - from).TotalDays)),
         };
     }
 
     private static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
+
+    /// <summary>
+    /// A day's usual energy (Wh): the average of the same weekday in the 4 weeks before it that were recorded (as a day's
+    /// page compares it, see <see cref="Compare"/>); null with none of them.
+    /// </summary>
+    public static double? UsualOf(DateTime day, IReadOnlyDictionary<DateTime, double> whByDay)
+    {
+        var before = Enumerable.Range(1, 4).Select(w => whByDay.TryGetValue(day.Date.AddDays(-7 * w), out double wh) ? wh : 0).Where(wh => wh > 0).ToList();
+        return before.Count == 0 ? null : before.Average();
+    }
     private static long Unix(DateTime local) => new DateTimeOffset(local).ToUnixTimeSeconds();
 
     /// <summary>

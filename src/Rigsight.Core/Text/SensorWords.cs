@@ -146,6 +146,8 @@ public static partial class SensorWords
         // Motherboard
         "+3V Standby" => Lang.C("sensor", "+3V Standby"),
         "CMOS Battery" => Lang.C("sensor", "CMOS Battery"),
+        // A wireless device's own battery (its row under the device on All sensors)
+        "Battery" => Lang.C("sensor", "Battery"),
         "CPU Fan" => Lang.C("sensor", "CPU Fan"),
         "Pump" => Lang.C("sensor", "Pump"),
         "System" => Lang.C("sensor", "System"),

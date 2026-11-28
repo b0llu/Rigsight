@@ -386,6 +386,10 @@ public sealed class AgentMessage
 
     /// <summary>tick, while the Latency page is open: its live view (issue #15).</summary>
     public LatencyLive? Latency { get; set; }
+
+    /// <summary>tick: each wireless device's charging by its battery reading's id ("charging", "full", see DeviceCharge.Wire); null when no device says (1.22.0).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Charge { get; set; }
 }
 
 /// <summary>App → agent.</summary>

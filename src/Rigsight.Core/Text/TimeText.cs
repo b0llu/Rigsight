@@ -55,11 +55,45 @@ public static partial class TimeText
         return To24Cache.GetOrAdd(format, To24);
     }
 
+    /// <summary>
+    /// The word a language puts between a month's name and its year, empty for none: Spanish writes "noviembre de 2026"
+    /// and "27 de noviembre de 2026" ("de" before the month comes from the month names, see LanguageStore).
+    /// <see cref="At(DateTime, string, IFormatProvider?)"/> and filled templates put it into every "MMMM yyyy", so no date
+    /// pattern needs translating. It can't go into the pattern itself: .NET reads any "d" in a pattern, even inside a
+    /// quoted word, as a day and would then write "de noviembre" with no day before it.
+    /// </summary>
+    public static string YearJoin { get => LocalJoin.Value ?? _yearJoin; set => _yearJoin = value ?? ""; }
+
+    private static volatile string _yearJoin = "";
+    private static readonly AsyncLocal<string?> LocalJoin = new();
+
+    /// <summary>Uses <paramref name="join"/> in this flow of work until disposed (for tests side by side).</summary>
+    internal static IDisposable JoinHere(string join)
+    {
+        var before = LocalJoin.Value;
+        LocalJoin.Value = join;
+        return new Restore(() => LocalJoin.Value = before);
+    }
+
+    [GeneratedRegex(@"(?<!M)MMMM(?!M)\s+(?=yy)")]
+    private static partial Regex MonthThenYear();
+
     /// <summary><paramref name="t"/> in <paramref name="format"/> (a 12-hour one, see <see cref="Fit"/>), as the clock in use writes it.</summary>
-    public static string At(DateTime t, string format, IFormatProvider? culture = null) => t.ToString(Fit(format), culture ?? CultureInfo.CurrentCulture);
+    public static string At(DateTime t, string format, IFormatProvider? culture = null) => Write(t, Fit(format), culture ?? CultureInfo.CurrentCulture);
 
     /// <inheritdoc cref="At(DateTime, string, IFormatProvider?)"/>
-    public static string At(DateTimeOffset t, string format, IFormatProvider? culture = null) => t.ToString(Fit(format), culture ?? CultureInfo.CurrentCulture);
+    public static string At(DateTimeOffset t, string format, IFormatProvider? culture = null) => Write(t.DateTime, Fit(format), culture ?? CultureInfo.CurrentCulture);
+
+    /// <summary><paramref name="t"/> in a fitted <paramref name="format"/>, with the language's word between a month's name and its year.</summary>
+    private static string Write(DateTime t, string format, IFormatProvider? culture)
+    {
+        string join = YearJoin;
+        if (join.Length == 0 || !format.Contains("MMMM", StringComparison.Ordinal) || MonthThenYear().Match(format) is not { Success: true } m)
+            return t.ToString(format, culture);
+        // The month part and the rest apart, so the month part alone decides whether "de" goes before the month's name.
+        int cut = m.Index + 4;
+        return t.ToString(format[..cut], culture) + " " + join + " " + t.ToString(format[(m.Index + m.Length)..], culture);
+    }
 
     /// <summary>The time of day: "6:41 PM" or "18:41".</summary>
     public static string Time(DateTime t) => At(t, "h:mm tt");
@@ -95,7 +129,7 @@ public static partial class TimeText
     /// <summary>A date and time that writes itself through <see cref="Fit"/>, for templates filled by <c>string.Format</c>.</summary>
     private readonly record struct FittedTime(DateTime Value) : IFormattable
     {
-        public string ToString(string? format, IFormatProvider? provider) => Value.ToString(format is null ? null : Fit(format), provider);
+        public string ToString(string? format, IFormatProvider? provider) => format is null ? Value.ToString(provider) : Write(Value, Fit(format), provider);
         public override string ToString() => Value.ToString();
     }
 }

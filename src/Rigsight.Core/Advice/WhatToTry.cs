@@ -224,6 +224,23 @@ public static class WhatToTry
         return new("memory-full", steps) { Subject = subject, AskPage = AiPages.Memory };
     }
 
+    /// <summary>
+    /// A start that took longer than its usual (the Start-up page, 1.22.0): the startup apps first, then an update for each
+    /// app Windows itself named as slower to start (at most two). Null for any other start: nothing to try.
+    /// </summary>
+    public static TryBlock? ForStart(Core.Startup.StartView start, string subject)
+    {
+        if (!start.Longer) return null;
+        var steps = new List<TryStep> { Screen("s1", Core.Startup.StartupWords.TryStartupApps, "startup-apps") };
+        // The apps that took longer than their own usual, then those Windows itself named: two at most, each once.
+        var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var app in start.LongerApps.Select(a => a.Name).Where(named.Add).Take(2))
+            steps.Add(new("s" + (steps.Count + 1), Core.Startup.StartupWords.TryAppLonger(app)) { CantSee = true });
+        foreach (var app in start.Record.Slow.Where(s => s.Event == 101 && s.Name.Length > 0).Select(s => s.Name).Where(named.Add).Take(3 - steps.Count))
+            steps.Add(new("s" + (steps.Count + 1), Core.Startup.StartupWords.TryAppUpdate(app)) { CantSee = true });
+        return new("startup|" + start.Time.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture), steps) { Subject = subject, AskPage = AiPages.Home };
+    }
+
     /// <summary>The internet dropping more than it usually does.</summary>
     public static TryBlock NetDrops(string subject) => new("net-drops",
     [

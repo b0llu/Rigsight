@@ -25,6 +25,9 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
     public string? Device { get; init; }
     public string? Via { get; init; }
 
+    /// <summary>How a wireless device is reached, in words ("Logitech receiver"), for its card.</summary>
+    public string? ViaShown => Via is { Length: > 0 } via ? Core.TrayParts.DeviceVia(via) : null;
+
     [ObservableProperty] private bool _hasVisibleSensors = true;
     [ObservableProperty] private bool _isExpanded = true;
 
@@ -87,6 +90,14 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
     {
         foreach (var key in Keys) key.Refresh();
     }
+
+    /// <summary>
+    /// A wireless device with its battery alone (1.22.0): one card on All sensors with no table, since there's one
+    /// sensor (the approved mock-up's B). Null for every other part.
+    /// </summary>
+    public DeviceCard? Card => Type == Core.TrayParts.DeviceHardwareType && Sensors is [{ Kind: Core.SensorKind.Battery } battery]
+        ? _card is { } c && c.Battery == battery ? c : _card = new(this, battery) : null;
+    private DeviceCard? _card;
 
     /// <summary>Marks the bottom edge of this component's card in the All sensors list.</summary>
     public SensorGroupEnd End => _end ??= new(this);
@@ -163,4 +174,11 @@ public sealed partial class HardwareKey : ObservableObject
 public sealed class SensorGroupEnd(HardwareNode owner)
 {
     public HardwareNode Owner { get; } = owner;
+}
+
+/// <summary>A wireless device's whole card on All sensors: the device (its heading, drag to move) and its battery.</summary>
+public sealed class DeviceCard(HardwareNode node, SensorItem battery)
+{
+    public HardwareNode Node { get; } = node;
+    public SensorItem Battery { get; } = battery;
 }

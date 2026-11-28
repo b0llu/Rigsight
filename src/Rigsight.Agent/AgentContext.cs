@@ -626,6 +626,7 @@ internal sealed partial class AgentContext : ApplicationContext
                                 Line = LineNow(),
                                 TrayWaiting = _trayWaiting is { Count: > 0 } waiting ? [.. waiting] : null,
                                 Latency = LatencyNow(),
+                                Charge = _sensors.Charges(),
                             });
                         }
                     }
@@ -670,6 +671,7 @@ internal sealed partial class AgentContext : ApplicationContext
                     _errors.Run("notice checks", MaybeCheckNotices);
                     _errors.Run("extremes", () => SaveExtremes());
                     _errors.Run("waiting repair", RetryWaitingRepair);
+                    _errors.Run("start-up record", MaybeRecordStarts);
                 }
 
                 if (now >= nextHardwareApps)
@@ -713,6 +715,8 @@ internal sealed partial class AgentContext : ApplicationContext
                     nextChangeScan = now + Inventory.CheckMinutes * 60_000;
                     _errors.Run("change scan", ScanChanges);
                 }
+
+                if (Environment.TickCount64 >= _driverLookAt) _errors.Run("driver history", LookAtDrivers);
 
                 if (now >= nextDrives)
                 {
@@ -1141,7 +1145,7 @@ internal sealed partial class AgentContext : ApplicationContext
         {
             if (_sensors.ReadSensor(x.Id) is not { } r) continue;
             string label = x.Label ?? settings.SensorLabels.GetValueOrDefault(x.Id) ?? SensorWords.Show(r.Name);
-            list.Add(new OverlaySensorReading(label, r.Kind, r.Value));
+            list.Add(new OverlaySensorReading(label, r.Kind, r.Value, r.Kind == SensorKind.Battery ? _sensors.Devices.Of(x.Id)?.Charge ?? ChargeState.Unknown : ChargeState.Unknown));
         }
         return list;
     }
@@ -1159,7 +1163,8 @@ internal sealed partial class AgentContext : ApplicationContext
         var map = new Dictionary<string, OverlaySensorReading>();
         foreach (var id in WidgetSensorIds(settings))
             if (_sensors.ReadSensor(id) is { } r)
-                map[id] = new OverlaySensorReading(settings.SensorLabels.GetValueOrDefault(id) ?? SensorWords.Show(r.Name), r.Kind, r.Value);
+                map[id] = new OverlaySensorReading(settings.SensorLabels.GetValueOrDefault(id) ?? SensorWords.Show(r.Name), r.Kind, r.Value,
+                    r.Kind == SensorKind.Battery ? _sensors.Devices.Of(id)?.Charge ?? ChargeState.Unknown : ChargeState.Unknown);
         return map;
     }
 
@@ -1438,7 +1443,8 @@ internal sealed partial class AgentContext : ApplicationContext
                     OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
                     LookId: source is null ? null : from, LookKind: source?.Kind, LookValue: source?.Value, Cores: cores,
                     Icon: IconOf(part, r.Kind, _sensors.Devices.Of(id)?.Kind.ToString()), IconBeside: beside,
-                    PartIcon: TrayParts.IconKey(part, r.Kind, id, _sensors.Devices.Of(id)?.Kind.ToString()));
+                    PartIcon: TrayParts.IconKey(part, r.Kind, id, _sensors.Devices.Of(id)?.Kind.ToString()),
+                    Charge: battery ? _sensors.Devices.Of(id)?.Charge ?? ChargeState.Unknown : ChargeState.Unknown);
             }
             else reading = new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, "",
                 Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id));
@@ -2223,8 +2229,8 @@ internal sealed partial class AgentContext : ApplicationContext
             if (graphics is not null)
                 found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time, Subject = c.IsApproximate ? Inventory.ExactPrefix + c.Subject : c.Subject, NoticedFrom = null } : c)];
 
-            _db.InsertChanges(logged);
-            _db.InsertChanges(found);
+            if (_db.InsertChanges(logged).Any(c => c.Kind == ChangeKind.Driver)) DriverLookSoon();
+            if (_db.InsertChanges(found).Any(c => c.Kind == ChangeKind.Driver)) DriverLookSoon();
             _db.ChangesScanned = TimeUtil.ToUnix(now);
             ScanFanSettings(now);
             foundCount = found.Count + logged.Count;

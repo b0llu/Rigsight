@@ -298,7 +298,7 @@ public sealed class FanDaysChart : FanChartBase
             if (d.Average is not null) lines.Add($"{ValueLabel} {Units.Format(SensorKind.Fan, d.Average)}");
             if (d.Fastest is not null) lines.Add(Lang.T($"Fastest {Units.Format(SensorKind.Fan, d.Fastest)}"));
             if (d.Earlier) lines.Add(Lang.T("Before its setting changed"));
-            Hover(dc, plot, plot.Left + slot * (h + 0.5), d.Day.ToString(Monthly ? "MMMM yyyy" : "ddd d MMM", CultureInfo.CurrentCulture), lines);
+            Hover(dc, plot, plot.Left + slot * (h + 0.5), TimeText.At(d.Day, Monthly ? "MMMM yyyy" : "ddd d MMM"), lines);
         }
     }
 }

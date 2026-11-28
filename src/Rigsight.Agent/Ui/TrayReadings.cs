@@ -160,7 +160,7 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
     /// </summary>
     internal static string Tooltip(IReadOnlyList<TrayReading> icon)
     {
-        var lines = icon.Select(r => $"{r.Name}: {Units.Format(r.Kind, r.Value)}").ToList();
+        var lines = icon.Select(r => $"{r.Name}: {(r.Kind == SensorKind.Battery ? DeviceCharge.Tip(r.Charge, r.Value) : null) ?? Units.Format(r.Kind, r.Value)}").ToList();
         string hardware = icon.Select(r => r.Hardware).FirstOrDefault(h => h.Length > 0) ?? "";
         string full = string.Join('\n', hardware.Length > 0 ? lines.Prepend(hardware) : lines);
         return full.Length <= MaxTooltip ? full : Fit(string.Join('\n', lines));

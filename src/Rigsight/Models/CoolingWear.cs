@@ -60,7 +60,7 @@ public sealed record CoolingPart
 
     /// <summary>What the chart says under the pointer for each point: its week or month, the gap, and what it's made of.</summary>
     public IReadOnlyList<string> Tips => [.. Points.Select(p =>
-        $"{(ByMonth ? p.Start.ToString("MMMM yyyy", CultureInfo.CurrentCulture) : Lang.T($"Week of {p.Start.ToString("d MMM", CultureInfo.CurrentCulture)}"))}\n"
+        $"{(ByMonth ? TimeText.At(p.Start, "MMMM yyyy") : Lang.T($"Week of {p.Start.ToString("d MMM", CultureInfo.CurrentCulture)}"))}\n"
         + Lang.T($"{Units.TempGap(p.Value, "0.0")} above rest")
         + (p is { Load: double load, Rest: double rest } ? "\n" + Lang.T($"{Units.TempShort(load)} under load, {Units.TempShort(rest)} at rest") : ""))];
 

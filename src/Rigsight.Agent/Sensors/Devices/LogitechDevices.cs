@@ -162,7 +162,9 @@ internal sealed class LogitechDevices : IDisposable
         if (a is null) return null;
         var reading = d.BatteryType == 0x1004 ? Unified(a[4], a[5], a[6], a[7]) : Status(a[4], a[6]);
         if (reading is not var (percent, level, charging)) return null;
-        return new DeviceBattery(d.Key, d.Name, d.Kind, percent, level, charging, true, "Logitech receiver");
+        // Full on power where it says so (1.22.0: "Full" after 100%), else charging or not.
+        var charge = d.BatteryType == 0x1004 ? DeviceCharge.FromUnified(a[6], a[7]) : DeviceCharge.FromStatus(a[6]);
+        return new DeviceBattery(d.Key, d.Name, d.Kind, percent, level, charging, true, "Logitech receiver") { Charge = charge };
     }
 
     /// <summary>

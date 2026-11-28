@@ -11,7 +11,8 @@ namespace Rigsight.Controls;
 /// <param name="Axis">Its label under the axis, or empty where the axis skips it.</param>
 /// <param name="Title">The hover box's title ("Sat 21 Nov", "10 AM").</param>
 /// <param name="Lines">The hover box's lines, worked out by the page.</param>
-public sealed record PowerSlot(string Axis, string Title, double? Cpu, double? Gpu, IReadOnlyList<string> Lines);
+/// <param name="Rich">Since 1.22.0, a day's rich hover (see <see cref="RichHover"/>), made when it's first shown so the apps' icons are in; null: the lines.</param>
+public sealed record PowerSlot(string Axis, string Title, double? Cpu, double? Gpu, IReadOnlyList<string> Lines, Func<RichTip>? Rich = null);
 
 /// <summary>
 /// The Power page's chart (1.18.0, approved mock-up 2026-11-23). A day is two lines, the CPU's and the GPU's average watts
@@ -99,8 +100,30 @@ public sealed class PowerChart : FanChartBase
         if (HoverX is double hx && hx >= plot.Left && hx <= plot.Right)
         {
             int i = Math.Clamp((int)((hx - plot.Left) / slotW), 0, slots.Count - 1);
-            Hover(dc, plot, X(i), slots[i].Title, slots[i].Lines);
+            if (!lines && slots[i].Rich is { } rich && (slots[i].Cpu is not null || slots[i].Gpu is not null))
+            {
+                // A day's own hover (1.22.0): its column lit, the box beside it, inside the chart.
+                var column = new Rect(plot.Left + slotW * i + 2, plot.Top, Math.Max(1, slotW - 4), plot.Height);
+                RichHover.Lit(dc, column);
+                // Inside the chart's card: beside the column, up to over the chart's own heading when a day says a lot.
+                RichHover.Draw(dc, this, Tip(i, rich), column, new Rect(0, -RiseAbove, ActualWidth, ActualHeight + RiseAbove));
+            }
+            else Hover(dc, plot, X(i), slots[i].Title, slots[i].Lines);
         }
+    }
+
+    /// <summary>How far a day's hover may rise above the chart: over its heading, inside its card.</summary>
+    private const double RiseAbove = 50;
+
+    // The rich hover of the slot under the pointer, made once while it stays there.
+    private (IReadOnlyList<PowerSlot>? Slots, int Index, RichTip? Tip) _tip;
+
+    private RichTip Tip(int i, Func<RichTip> make)
+    {
+        if (ReferenceEquals(_tip.Slots, Slots) && _tip.Index == i && _tip.Tip is { } made) return made;
+        var tip = make();
+        _tip = (Slots, i, tip);
+        return tip;
     }
 
     // A line through the recorded slots, broken where one wasn't.

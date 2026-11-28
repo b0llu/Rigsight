@@ -128,6 +128,20 @@ public static class Accents
     }
 
     /// <summary>
+    /// The tints of a driver's kind on Latency (1.22.0, the approved mock-up): network indigo, made from the palette's own
+    /// CPU blue and violet halfway (so it turns with them), and soft washes for the icon squares of sound (pink) and network.
+    /// Graphics and storage use the GPU's and the CPU's own colours and soft brushes.
+    /// </summary>
+    public static void Kinds(ResourceDictionary palette)
+    {
+        var indigo = Mix((Color)palette["CpuColor"], (Color)palette["PurpleColor"], 0.5);
+        palette["IndigoColor"] = indigo;
+        palette["IndigoBrush"] = Brush(indigo, 1);
+        palette["IndigoSoftBrush"] = Brush(indigo, 0.16);
+        palette["PinkSoftBrush"] = Brush((Color)palette["PinkColor"], 0.16);
+    }
+
+    /// <summary>
     /// The four colours a reading is drawn in by how it is doing (low, fine, warm, hot) once they follow the accent:
     /// shades of it, in place of blue, green, amber and red. Warnings never use these: they keep their own colours.
     /// </summary>

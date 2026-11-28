@@ -17,26 +17,9 @@
                     <TextBlock Text="{ctl:T 'How long drivers kept a CPU core busy, and how long apps waited to run.'}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
                 </StackPanel>
             </DockPanel>
-            <DockPanel Margin="0,0,0,18">
-                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'All'}"
-                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=All}" />
-                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'In games'}"
-                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=InGames}" />
-                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'Outside games'}"
-                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=OutsideGames}" />
-                    </StackPanel>
-                </Border>
-                <StackPanel Orientation="Horizontal">
-                    <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
-                                      CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
-                    <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
-            </DockPanel>
-
-            <!-- ── Right now: the driver delay and the app wake-up check, live while the page is open ── -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,0,18">
+            <!-- ── Right now: the driver delay and the app wake-up check, live while the page is open. Above the period and
+                 the In games filter, as Network has its live strip (1.22.0): what's live first, then what the filters change. ── -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,4,0,0">
                 <StackPanel>
                     <TextBlock Text="{ctl:T 'Right now'}" Style="{StaticResource H2}" />
                     <Grid Margin="0,14,0,0">
@@ -52,7 +35,7 @@
                                     <Run Text="{Binding LiveDriverNumber, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Jumbo}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" ms" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" />
                                 </TextBlock>
                                 <TextBlock Text="{Binding LiveDriverWho}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
-                                <ctl:LiveStrip Height="88" Margin="0,12,0,0" Bars="{Binding LiveDriverBars}" Stroke="{DynamicResource TextBrush}" AutomationProperties.Name="{ctl:T 'Driver delay over the last 2 minutes'}" />
+                                <ctl:LiveStrip Height="88" Margin="0,12,0,0" Bars="{Binding LiveDriverBars}" Stroke="{DynamicResource CpuBrush}" AutomationProperties.Name="{ctl:T 'Driver delay over the last 2 minutes'}" />
                                 <TextBlock Text="{Binding LiveDriverNote}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             </StackPanel>
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Card}" Padding="16" Margin="0,12,0,0"
@@ -73,7 +56,7 @@
                                     <Run Text="{Binding LiveWakeNumber, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Jumbo}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" ms" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" />
                                 </TextBlock>
                                 <TextBlock Text="{Binding LiveWakeNote}" Style="{StaticResource Muted}" />
-                                <ctl:LiveStrip Height="88" Margin="0,12,0,0" Bars="{Binding LiveWakeBars}" IsLine="True" Stroke="{DynamicResource PurpleBrush}" AutomationProperties.Name="{ctl:T 'App wake-up delay over the last 2 minutes'}" />
+                                <ctl:LiveStrip Height="88" Margin="0,12,0,0" Bars="{Binding LiveWakeBars}" IsLine="True" Filled="True" Stroke="{DynamicResource PurpleBrush}" AutomationProperties.Name="{ctl:T 'App wake-up delay over the last 2 minutes'}" />
                                 <TextBlock Text="{Binding WakeHow}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             </StackPanel>
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Card}" Padding="16" Margin="0,12,0,0"
@@ -88,6 +71,24 @@
                 </StackPanel>
             </ctl:SmoothBorder>
 
+            <DockPanel Margin="0,26,0,18">
+                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'All'}"
+                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=All}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'In games'}"
+                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=InGames}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'Outside games'}"
+                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=OutsideGames}" />
+                    </StackPanel>
+                </Border>
+                <StackPanel Orientation="Horizontal">
+                    <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
+                                      CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
+                    <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </DockPanel>
+
             <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,80,0,0"
                          Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
 
@@ -97,6 +98,8 @@
                     <TextBlock Text="&#xE7EF;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S28}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="{ctl:T 'Driver delays need RigSight to run as administrator.'}" Style="{StaticResource H2}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,4" />
                     <TextBlock Text="{ctl:T 'Windows only gives driver timings to apps with admin rights. App wake-up delays are still recorded.'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                    <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Center" Margin="0,14,0,0" Content="{ctl:T 'Restart with admin'}"
+                            Command="{Binding RestartWithAdmin}" Visibility="{Binding ShowRestartAdmin, Converter={StaticResource Vis}}" />
                 </StackPanel>
             </ctl:SmoothBorder>
             <!-- Admin rights, but nothing recorded in these days. -->
@@ -130,7 +133,8 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="0,0,0,10">
-                                        <Border DockPanel.Dock="Left" Style="{StaticResource IconBox}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                        <Border DockPanel.Dock="Left" Style="{StaticResource IconBox}" Margin="0,0,12,0" VerticalAlignment="Top"
+                                                Background="{Binding IconBack, Converter={StaticResource ResourceBrush}}">
                                             <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
                                                        Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
                                         </Border>
@@ -171,10 +175,18 @@
                                                  IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Over}" />
                                 </StackPanel>
                             </Border>
+                            <!-- The bars' two shades, named (1.22.0, the approved mock-up): driver delays only. -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,18,0"
+                                        Visibility="{Binding ShowLegend, Converter={StaticResource Vis}}">
+                                <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{ctl:T 'Over 1 ms'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource CpuBrush}" Opacity="0.5" VerticalAlignment="Center" Margin="18,0,6,0" />
+                                <TextBlock Text="{ctl:T 'Under 1 ms'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
                         <TextBlock Text="{Binding ChartNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,6,0,0" Visibility="{Binding ChartNote, Converter={StaticResource Vis}}" />
-                        <ctl:LatencyChart Height="240" Margin="0,14,0,0" Slots="{Binding Slots}" IsMs="{Binding ChartIsMs}" Guidance="{Binding ChartShowsGuidance}" BarBrush="{Binding ChartBrush, Converter={StaticResource ResourceBrush}}" GapReason="{Binding GapReason}" AutomationProperties.Name="{Binding ChartTitle}" />
+                        <ctl:LatencyChart Height="240" Margin="0,14,0,0" Slots="{Binding Slots}" IsMs="{Binding ChartIsMs}" Guidance="{Binding ChartShowsGuidance}" BarBrush="{Binding ChartBrush, Converter={StaticResource ResourceBrush}}" GapReason="{Binding GapReason}" RecordedFrom="{Binding ChartRecordedFrom}" AutomationProperties.Name="{Binding ChartTitle}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 
@@ -227,13 +239,23 @@
                                                     <ColumnDefinition Width="130" />
                                                     <ColumnDefinition Width="150" />
                                                 </Grid.ColumnDefinitions>
-                                                <Border Style="{StaticResource IconBox}" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
+                                                <!-- Its kind's colour on its icon (graphics cyan, network indigo, sound pink, storage blue; 1.22.0). -->
+                                                <Border Style="{StaticResource IconBox}" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{Binding IconBack, Converter={StaticResource ResourceBrush}}">
+                                                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" HorizontalAlignment="Center" />
                                                 </Border>
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
-                                                    <TextBlock Text="{Binding Who}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
-                                                    <TextBlock Text="{Binding File}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
-                                                </StackPanel>
+                                                <Grid Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.6*" />
+                                                        <ColumnDefinition Width="*" MaxWidth="180" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Margin="0,0,14,0">
+                                                        <TextBlock Text="{Binding Who}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                        <TextBlock Text="{Binding File}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                    </StackPanel>
+                                                    <!-- Its longest against the period's longest, one blue for every driver. -->
+                                                    <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" Height="8" Maximum="1" Value="{Binding Share, Mode=OneWay}"
+                                                                 Foreground="{DynamicResource CpuBrush}" VerticalAlignment="Center" IsHitTestVisible="False" />
+                                                </Grid>
                                                 <TextBlock Grid.Column="2" Text="{Binding Longest}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                                 <TextBlock Grid.Column="3" Text="{Binding Over}" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <TextBlock.Style>
@@ -514,7 +536,7 @@
                     <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" />
-                            <ctl:LatencyChart Height="200" Margin="0,14,0,0" Slots="{Binding Slots}" GapReason="{Binding DataContext.GapReason, ElementName=Page}" AutomationProperties.Name="{Binding ChartTitle}" />
+                            <ctl:LatencyChart Height="200" Margin="0,14,0,0" Slots="{Binding Slots}" GapReason="{Binding DataContext.GapReason, ElementName=Page}" RecordedFrom="{Binding DataContext.DriverRecordedFrom, ElementName=Page}" AutomationProperties.Name="{Binding ChartTitle}" />
                             <TextBlock Text="{Binding UsualText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
 
                             <!-- What to try (1.21.0): Latency's tips as the shared block. -->

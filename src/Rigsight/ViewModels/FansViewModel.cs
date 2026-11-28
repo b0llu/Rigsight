@@ -965,7 +965,7 @@ public sealed partial class FansViewModel : ObservableObject
             .Select(m => (Month: m.Key, Score: m.Value.Sum(d => d.ScoreSum) / m.Value.Sum(d => d.Minutes), Days: m.Value))
             .OrderByDescending(m => m.Score).FirstOrDefault();
         LoudestLabel = Lang.T("Loudest month");
-        LoudestHour = loud.Days is null ? null : loud.Month.ToString("MMMM yyyy");
+        LoudestHour = loud.Days is null ? null : TimeText.At(loud.Month, "MMMM yyyy");
         LoudestNote = loud.Days is null ? Lang.T("No day with an hour on")
             : While(loud.Days.Where(d => d.LoudApp is not null).GroupBy(d => d.LoudApp!.Value).MaxBy(g => g.Sum(d => d.LoudAppScore))?.Key, apps, s);
 
@@ -986,7 +986,7 @@ public sealed partial class FansViewModel : ObservableObject
         var bars = months.Select(m =>
         {
             bool now = m.Year == DateTime.Today.Year && m.Month == DateTime.Today.Month;
-            string title = m.ToString("MMMM yyyy");
+            string title = TimeText.At(m, "MMMM yyyy");
             if (!byMonth.TryGetValue(m, out var list)) return new Controls.FanStripBar(m, new int[4], m.ToString("MMM"), now, new(title, null, [], Wording.NotRecorded));
             var lv = Enumerable.Range(0, 4).Select(k => (int)Math.Round(list.Average(d => d.Levels[k]))).ToArray();
             return new Controls.FanStripBar(m, lv, m.ToString("MMM"), now, new(title, null, BarRows(lv, (int)Math.Round(list.Average(d => d.Starts)), kind), Sub: Lang.T("An average day")));

@@ -212,7 +212,7 @@ public sealed class PeriodTemps : FrameworkElement
         double cx = plot.Left + slot * (i + 0.5);
 
         string title = hourly ? $"{TimeText.At(d.Day, "h tt")} – {TimeText.At(d.Day.AddHours(1), "h tt")}"
-            : monthly ? d.Day.ToString("MMMM yyyy") : d.Day.ToString("dddd, d MMMM");
+            : monthly ? TimeText.At(d.Day, "MMMM yyyy") : d.Day.ToString("dddd, d MMMM");
         var who = new HeatWho(d.Front);
         bool any = d.CpuTempAvg is not null || d.GpuTempAvg is not null;
         bool lows = days.Any(b => b.CpuTempMin is not null || b.GpuTempMin is not null);

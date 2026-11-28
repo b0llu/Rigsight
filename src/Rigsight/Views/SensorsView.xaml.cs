@@ -30,6 +30,7 @@ public partial class SensorsView : UserControl
 
     // The page's side margins; the pane with its gap; a row with every column and the list's scrollbar strip; the same
     // without the three figures; the least the list is left beside the pane.
+    // The tag and name columns together keep the 188 these were set with (see Controls.KindTag.NameMinWidth).
     internal const double Sides = 64, PaneWidth = 320, FullRow = 728, RowWithSpark = 500, LeastList = 420;
 
     /// <summary>What a page this wide shows: the pane while the list keeps a readable width beside it, and the columns the list then has room for.</summary>
@@ -60,6 +61,9 @@ public partial class SensorsView : UserControl
         if (sender is FrameworkElement { DataContext: Models.HardwareNode node } && DataContext is ViewModels.LiveData live)
             live.ToggleExpandedCommand.Execute(node);
     }
+
+    /// <summary>A device card has nothing to open: a press and release there is no drag, and nothing more.</summary>
+    private void Card_MouseUp(object sender, MouseButtonEventArgs e) => _pressedAt = null;
 
     private void Header_MouseMove(object sender, MouseEventArgs e)
     {
@@ -162,6 +166,8 @@ public partial class SensorsView : UserControl
     {
         if (_live is null) return;
         int index = _live.SensorRows.IndexOf(item);
+        // A device's battery is inside its card (1.22.0): the card is the row to bring into view.
+        if (index < 0) index = _live.SensorRows.FindIndex(r => r is Models.DeviceCard c && c.Battery == item);
         if (index < 0) return;
         // The list builds only the rows on screen: its panel is asked for the row by its place in the list.
         Dispatcher.BeginInvoke(() =>

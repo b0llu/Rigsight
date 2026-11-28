@@ -723,7 +723,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         var end = BinEnd(i);
         string title = Hourly
             ? (Unit == ReportRange.Day ? "" : b.Start.ToString("ddd d MMM") + " · ") + $"{TimeText.At(b.Start, "h tt")} – {TimeText.At(end, "h tt")}"
-            : Monthly ? b.Start.ToString("MMMM yyyy") : b.Start.ToString("dddd, d MMMM");
+            : Monthly ? TimeText.At(b.Start, "MMMM yyyy") : b.Start.ToString("dddd, d MMMM");
         // What a click does on this bar: picks it (or lets it go); dragging zooms in (not a year's months).
         string unitWord = Hourly ? "hour" : Monthly ? "month" : "day";
         string click = Picked == (i, i)

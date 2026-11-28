@@ -250,6 +250,8 @@ public sealed partial class RigsightDb : IDisposable
         // listened for (45-second capture, 22 Nov 2026), so it was removed and its empty table goes too.
         Exec("DROP TABLE IF EXISTS desktop_minute;");
         EnsureSoundSchema();
+        EnsureStartupSchema();
+        EnsureDriverHistorySchema();
     }
 
     private const string FansFreshKey = "fans_fresh";
@@ -1098,6 +1100,8 @@ public sealed partial class RigsightDb : IDisposable
         PruneSound(before);
         PruneMarks(before);
         PruneChanges(before);
+        PruneStartup(before);
+        PruneDriverHistory(before);
         if (HasSteamDownloads) using (var c7 = Cmd("DELETE FROM steam_download WHERE ended < $t", ("$t", before))) c7.ExecuteNonQuery();
         return minutes;
     }
@@ -1144,6 +1148,7 @@ public sealed partial class RigsightDb : IDisposable
             + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day; DELETE FROM app_cpu_hour; DELETE FROM app_cpu_day; DELETE FROM device_full;"
             + " DELETE FROM driver_minute; DELETE FROM driver_hour; DELETE FROM driver_missed; DELETE FROM problem_mark;");
         ClearSound();
+        ClearStartup();
     }
 
     // ── Reader ────────────────────────────────────────────────────────────

@@ -369,7 +369,7 @@ public sealed partial class ExportViewModel : ObservableObject, Views.IDayRange
         var report = page is { } p ? await reports.BuildAsync(p.Range, p.Anchor)
             : day ? await reports.BuildAsync(ReportRange.Day, from) : await reports.BuildCustomAsync(from, to);
         report ??= new Report { From = from, To = to };
-        string title = day ? from.ToString("dddd, d MMMM yyyy")
+        string title = day ? TimeText.At(from, "dddd, d MMMM yyyy")
             : from.TimeOfDay == TimeSpan.Zero && to.TimeOfDay == TimeSpan.Zero ? Lang.T($"{from:d MMM yyyy} to {to.AddDays(-1):d MMM yyyy}") : Report.CustomTitle(from, to);
         await File.WriteAllTextAsync(path, asText ? ReadableExport.ReportText(report, title, Version) : ReadableExport.Report(report, title, Version), new UTF8Encoding(true));
     }

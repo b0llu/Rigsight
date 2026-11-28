@@ -161,7 +161,13 @@
                                                             Visibility="{Binding IsShown, Converter={StaticResource Vis}}">
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock x:Name="Value" Text="{Binding Sensor.ShortValue}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
-                                                                       Visibility="{Binding Sensor, Converter={StaticResource Vis}}" />
+                                                                       Visibility="{Binding Sensor, Converter={StaticResource Vis}}" ToolTip="{Binding Sensor.ChargeTip}" />
+                                                            <!-- A wireless device that says it's charging: a bolt in the number's colour; full on power: "Full" (1.22.0). -->
+                                                            <TextBlock x:Name="Bolt" Text="&#xE945;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="3,0,0,0" VerticalAlignment="Center"
+                                                                       Foreground="{Binding Foreground, ElementName=Value}" ToolTip="{Binding Sensor.ChargeTip}"
+                                                                       Visibility="{Binding Sensor.ShowsBolt, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                                                            <TextBlock Text="{x:Static m:SensorItem.FullWord}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                       ToolTip="{Binding Sensor.ChargeTip}" Visibility="{Binding Sensor.ShowsFull, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
                                                             <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" VerticalAlignment="Center"
                                                                        Visibility="{Binding Label, Converter={StaticResource Vis}}" />
                                                             <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}"
@@ -196,8 +202,8 @@
                                 </Border>
                                 <Grid x:Name="Columns" Margin="0,20,0,4">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="58" />
-                                        <ColumnDefinition Width="*" MinWidth="130" />
+                                        <ColumnDefinition Width="{x:Static ctl:KindTag.Column}" />
+                                        <ColumnDefinition Width="*" MinWidth="{x:Static ctl:KindTag.NameMinWidth}" />
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="90" />
                                         <ColumnDefinition Width="Auto" />
@@ -244,6 +250,75 @@
                         </DataTemplate.Triggers>
                     </DataTemplate>
 
+                    <!-- A wireless device with its battery alone (1.22.0, the mock-up's B): one card and no table, since there's one
+                         sensor. The device's words on the left (drag them to move the card), under them its lowest, highest
+                         and average; on the right what the battery did lately, its level big in its colour, the eye and the menu. -->
+                    <DataTemplate DataType="{x:Type m:DeviceCard}">
+                        <ctl:SmoothBorder x:Name="Card" Margin="0,0,0,16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                          BorderThickness="1" CornerRadius="16" Padding="20,14,14,14">
+                            <DockPanel>
+                                <StackPanel x:Name="Right" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" DataContext="{Binding Battery}">
+                                    <TextBlock Text="{Binding BatteryTrend}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"
+                                               Margin="0,0,18,0" Visibility="{Binding BatteryTrend, Converter={StaticResource Vis}}"
+                                               ToolTip="{ctl:T 'What the battery did in the last 10 minutes'}" />
+                                    <StackPanel Orientation="Horizontal" MinWidth="84" VerticalAlignment="Center" ToolTip="{Binding ChargeTip}">
+                                        <TextBlock Text="&#xE83F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S16}" VerticalAlignment="Center" Margin="0,1,7,0"
+                                                   Foreground="{Binding Value, Converter={StaticResource BatteryBrush}}" />
+                                        <TextBlock x:Name="Level" Text="{Binding ShortValue}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                   Foreground="{Binding Value, Converter={StaticResource BatteryBrush}}" />
+                                        <!-- Charging: a bolt in the level's colour; full on power: "Full" in grey. -->
+                                        <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{Binding Foreground, ElementName=Level}" Visibility="{Binding ShowsBolt, Converter={StaticResource Vis}}" />
+                                        <TextBlock Text="{x:Static m:SensorItem.FullWord}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0"
+                                                   VerticalAlignment="Center" Visibility="{Binding ShowsFull, Converter={StaticResource Vis}}" />
+                                    </StackPanel>
+                                    <Button Style="{StaticResource IconButton}" Margin="12,0,0,0" Width="36"
+                                            Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" ToolTip="{ctl:T 'Hide / show this sensor'}">
+                                        <TextBlock x:Name="EyeGlyph" Text="&#xE7B3;" />
+                                    </Button>
+                                    <Button Style="{StaticResource IconButton}" Width="30" Click="More_Click"
+                                            ToolTip="{ctl:T 'Show it on the taskbar, the overlay, a widget or a dashboard'}" AutomationProperties.Name="{ctl:T More}">
+                                        <TextBlock Text="&#xE712;" />
+                                    </Button>
+                                </StackPanel>
+                                <Border x:Name="Left" Background="Transparent" DataContext="{Binding Node}" Margin="-8,-6,12,-6" Padding="8,6" CornerRadius="{x:Static ctl:Corner.Control}"
+                                        MouseLeftButtonDown="Header_MouseDown" MouseMove="Header_MouseMove" MouseLeftButtonUp="Card_MouseUp"
+                                        ToolTip="{ctl:T 'Drag to change the order.'}">
+                                    <StackPanel>
+                                        <!-- The tag, the name, then how it's reached right after the name (a long name ends in "…" first). -->
+                                        <DockPanel LastChildFill="False">
+                                            <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
+                                                <TextBlock Text="{Binding BadgeText}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
+                                            </Border>
+                                            <TextBlock Text="{Binding ShownName}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Field}" Padding="9,3" Margin="10,0,0,0"
+                                                    VerticalAlignment="Center" Visibility="{Binding ViaShown, Converter={StaticResource Vis}}">
+                                                <TextBlock Text="{Binding ViaShown}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" />
+                                            </Border>
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding DataContext.Battery.BatteryStats, ElementName=Card}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}"
+                                                   Margin="0,6,0,0" TextTrimming="CharacterEllipsis" Visibility="{Binding DataContext.Battery.BatteryStats, ElementName=Card, Converter={StaticResource Vis}}"
+                                                   ToolTip="{ctl:T 'Lowest and highest today, average since you opened this window'}" />
+                                    </StackPanel>
+                                </Border>
+                            </DockPanel>
+                        </ctl:SmoothBorder>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding Node.IsBeingMoved}" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Battery.IsSelected}" Value="True">
+                                <Setter TargetName="Card" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Battery.IsHidden}" Value="True">
+                                <Setter TargetName="Left" Property="Opacity" Value="0.45" />
+                                <Setter TargetName="Right" Property="Opacity" Value="0.45" />
+                                <Setter TargetName="EyeGlyph" Property="Text" Value="&#xED1A;" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+
                     <!-- One sensor -->
                     <DataTemplate DataType="{x:Type m:SensorItem}">
                         <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
@@ -251,8 +326,8 @@
                             <Border x:Name="Row" CornerRadius="{x:Static ctl:Corner.Field}" Padding="0,3" Background="Transparent">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="58" />
-                                        <ColumnDefinition Width="*" MinWidth="130" />
+                                        <ColumnDefinition Width="{x:Static ctl:KindTag.Column}" />
+                                        <ColumnDefinition Width="*" MinWidth="{x:Static ctl:KindTag.NameMinWidth}" />
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="90" />
                                         <ColumnDefinition Width="Auto" />
@@ -262,8 +337,8 @@
                                         <ColumnDefinition Width="30" />
                                     </Grid.ColumnDefinitions>
                                     <Border Style="{StaticResource Badge}" Background="{Binding Kind, Converter={StaticResource KindBrush}, ConverterParameter=soft}"
-                                            HorizontalAlignment="Left" Padding="6,2" Margin="6,0,0,0">
-                                        <TextBlock Text="{Binding TypeLabel}" FontSize="{x:Static ctl:TextSize.Tiny}" FontWeight="Bold"
+                                            HorizontalAlignment="Left" Padding="{x:Static ctl:KindTag.Padding}" MaxWidth="{x:Static ctl:KindTag.Width}" Margin="6,0,0,0">
+                                        <TextBlock Text="{Binding TypeLabel}" FontSize="{x:Static ctl:TextSize.Tiny}" FontWeight="Bold" TextWrapping="Wrap" TextAlignment="Center"
                                                    Foreground="{Binding Kind, Converter={StaticResource KindBrush}}" />
                                     </Border>
                                     <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
@@ -274,7 +349,8 @@
                                                        Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}"
                                                        Stroke="{Binding Kind, Converter={StaticResource KindBrush}}" />
                                     </Grid>
-                                    <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" FontWeight="SemiBold">
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="{Binding ChargeTip}">
+                                    <TextBlock x:Name="RowValue" Text="{Binding FormattedValue}" FontWeight="SemiBold">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource Num}">
                                                 <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -297,6 +373,12 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
+                                    <!-- A wireless device that says it's charging: a bolt in the number's colour; full on power: "Full" in grey (1.22.0). -->
+                                    <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="4,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{Binding Foreground, ElementName=RowValue}" Visibility="{Binding ShowsBolt, Converter={StaticResource Vis}}" />
+                                    <TextBlock Text="{x:Static m:SensorItem.FullWord}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" VerticalAlignment="Center"
+                                               Visibility="{Binding ShowsFull, Converter={StaticResource Vis}}" />
+                                    </StackPanel>
                                     <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Stat}" />
                                     <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Stat}" />
                                     <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Stat}" />

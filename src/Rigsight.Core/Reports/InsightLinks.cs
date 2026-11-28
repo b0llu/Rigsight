@@ -27,6 +27,8 @@ public static class InsightLinks
         "fan-stopped" or "fan-slower" or "fan-older" => InsightOpens.Fans,
         // Far outside an app's own usual, or the connection itself dropping.
         "net-upload" or "net-drops" => InsightOpens.Network,
+        // A start clearly longer than its usual (1.22.0): that day on Start-up, its start opened.
+        Startup.StartupReport.HomeKey => InsightOpens.Startup,
         _ => InsightOpens.None,
     };
 

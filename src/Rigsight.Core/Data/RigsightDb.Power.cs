@@ -3,10 +3,14 @@ namespace Rigsight.Core.Data;
 /// <summary>A stretch of the Power chart (an hour, a local day or a local month): the CPU and GPU energy in it, in Wh.</summary>
 /// <param name="CpuWh">Null when the CPU gave no power reading in it (never 0 for "not read").</param>
 /// <param name="TopApp">The app in front for most of that energy; null when nothing was.</param>
-public sealed record PowerBucket(long Start, double? CpuWh, double? GpuWh, int Minutes, long? TopApp)
+/// <param name="Apps">Since 1.22.0, for the chart's hover: each app in front in it, its minutes and the energy in them, the most first.</param>
+public sealed record PowerBucket(long Start, double? CpuWh, double? GpuWh, int Minutes, long? TopApp, IReadOnlyList<PowerBucketApp>? Apps = null)
 {
     public double Wh => (CpuWh ?? 0) + (GpuWh ?? 0);
 }
+
+/// <summary>An app in front in a stretch of the Power chart: its minutes in front and the CPU and GPU energy in them (Wh).</summary>
+public sealed record PowerBucketApp(long App, int Minutes, double Wh);
 
 /// <summary>One app's time in front over a period and the CPU and GPU energy in that time (Wh): the PC's, not the app's own.</summary>
 public sealed record PowerApp(long App, int Minutes, double Wh, bool IsGame);
@@ -55,9 +59,11 @@ public sealed partial class RigsightDb
         long cpuN = 0, gpuN = 0;
         int minutes = 0;
         long? top = null;
+        var apps = new List<PowerBucketApp>();
         void Flush()
         {
-            if (current is long b) list.Add(new PowerBucket(b, cpuN > 0 ? cpu / 60 : null, gpuN > 0 ? gpu / 60 : null, minutes, top));
+            if (current is long b) list.Add(new PowerBucket(b, cpuN > 0 ? cpu / 60 : null, gpuN > 0 ? gpu / 60 : null, minutes, top,
+                [.. apps.OrderByDescending(a => a.Wh)]));
         }
         while (r.Read())
         {
@@ -66,6 +72,7 @@ public sealed partial class RigsightDb
             {
                 Flush();
                 (current, cpu, gpu, cpuN, gpuN, minutes, top, topWh) = (b, 0, 0, 0, 0, 0, null, -1);
+                apps = [];
             }
             long? app = r.IsDBNull(1) ? null : r.GetInt64(1);
             double c = r.GetDouble(3), g = r.GetDouble(5);
@@ -73,6 +80,7 @@ public sealed partial class RigsightDb
             cpu += c; cpuN += r.GetInt64(4);
             gpu += g; gpuN += r.GetInt64(6);
             if (app is not null && c + g > topWh) (top, topWh) = (app, c + g);
+            if (app is long id) apps.Add(new PowerBucketApp(id, r.GetInt32(2), (c + g) / 60));
         }
         Flush();
         return list;

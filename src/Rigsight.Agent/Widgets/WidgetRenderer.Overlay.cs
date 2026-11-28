@@ -116,7 +116,7 @@ internal static partial class WidgetRenderer
 
         // The user's own sensors: one row each, labelled with its name.
         foreach (var s in d.Sensors)
-            rows.Add(new(s.Label, p.Muted, [SensorCell(s.Kind, s.Value)], Sensor: true));
+            rows.Add(new(s.Label, p.Muted, [s.Kind == SensorKind.Battery ? BatteryCell(s) : SensorCell(s.Kind, s.Value)], Sensor: true));
 
         // The last row has no label: the app in front, how long you've been on it, and the time.
         var other = new List<Cell>();
@@ -140,6 +140,16 @@ internal static partial class WidgetRenderer
             })];
 
         return rows;
+
+        // A wireless device's battery (1.22.0): coloured by its level, with a bolt after the number while it charges or
+        // is full on power (see DeviceCharge.TileBolt); a level-only device's word as it is.
+        Cell BatteryCell(OverlaySensorReading s)
+        {
+            if (s.Value is not double v) return new("—", "", p.Muted, "100");
+            string bolt = DeviceCharge.TileBolt(s.Charge) ? BoltMark.ToString() : "";
+            var color = Gray ? p.Text : TrayColor(SensorKind.Battery, v, p.Light);
+            return Units.BatteryWord(v) is { } word ? new(word + bolt, "", color, "Medium" + bolt) : new($"{v:0}{bolt}", "%", color, "100" + bolt);
+        }
 
         // Value and unit apart, sized to the usual widest value so the overlay doesn't jitter.
         Cell SensorCell(SensorKind kind, double? v)
@@ -201,7 +211,8 @@ internal static partial class WidgetRenderer
         // RivaTuner reads a colour with alpha 00 as one without alpha, i.e. solid: the least it gets is 01 (invisible).
         int textAlpha = Math.Max(1, (int)Math.Round(255 * o.ContentOpacity));
         string Hex(Color c) => textAlpha >= 255 ? $"{c.R:X2}{c.G:X2}{c.B:X2}" : $"{textAlpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
-        static string Clean(string text) => text.Replace("<", "").Replace(">", "");
+        // RivaTuner draws its own text: no charging bolt there (RigSight draws it, see BoltMark).
+        static string Clean(string text) => text.Replace("<", "").Replace(">", "").Replace(BoltMark.ToString(), "");
 
         // Labels share a left-aligned column so the numbers line up, as in the window. Its width (in symbols)
         // fits the longest label: 4 for "CPU"/"GPU", more for sensor names.
@@ -269,7 +280,8 @@ internal static partial class WidgetRenderer
         if (rows.Count == 0) return "";
         int textAlpha = Math.Max(1, (int)Math.Round(255 * o.ContentOpacity));
         string Hex(Color c) => textAlpha >= 255 ? $"{c.R:X2}{c.G:X2}{c.B:X2}" : $"{textAlpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
-        static string Clean(string text) => text.Replace("<", "").Replace(">", "");
+        // RivaTuner draws its own text: no charging bolt there (RigSight draws it, see BoltMark).
+        static string Clean(string text) => text.Replace("<", "").Replace(">", "").Replace(BoltMark.ToString(), "");
         bool line = o.Layout == OverlayLayout.Line;
 
         // The window's own measures and size (see RenderOverlay), at size M.
@@ -372,7 +384,8 @@ internal static partial class WidgetRenderer
     /// </summary>
     public static string RtssNoticeText(string caption, Color accent, string title, string body, bool top, double scale)
     {
-        static string Clean(string text) => text.Replace("<", "").Replace(">", "");
+        // RivaTuner draws its own text: no charging bolt there (RigSight draws it, see BoltMark).
+        static string Clean(string text) => text.Replace("<", "").Replace(">", "").Replace(BoltMark.ToString(), "");
         static string Hex(Color c) => $"{c.R:X2}{c.G:X2}{c.B:X2}";
         int fontHeight = -(int)Math.Round(8 * scale);
         var (left, topMargin, right, bottom) = RtssMargins(top ? 2 : 8, RtssGapPx, RtssGapPx, scale);

@@ -116,7 +116,7 @@ public sealed partial class TimelineEntry : ObservableObject
     public bool HasChildren => Children.Count > 0;
 
     /// <summary>A folded line's own line opens something (a crash, a driver mark, a game): lit on hover, with an arrow.</summary>
-    public bool CanOpen => IsDelay || IsProblem || GameKey is not null;
+    public bool CanOpen => IsDelay || IsProblem || GameKey is not null || DriverKey is not null;
 
     /// <summary>What a screen reader says for a folded line: its title and its grey part.</summary>
     public string SpokenName => Detail is { Length: > 0 } d ? $"{Title}, {d}" : Title;
@@ -200,7 +200,7 @@ public sealed partial class CalendarCell(DateTime? day) : ObservableObject
 public sealed record CalendarMonthCell(DateTime Month, int Count, bool IsCurrent)
 {
     public string Text => Month.ToString("MMM");
-    public string Label => Month.ToString("MMMM yyyy");
+    public string Label => TimeText.At(Month, "MMMM yyyy");
     public bool HasAny => Count > 0;
     public string CountText => Count > 0 ? Count.ToString("N0") : "";
 }
@@ -214,6 +214,12 @@ public sealed record NowFact(string Label, string Value, string? Since)
     public DateTime? ResultDay { get; init; }
     public string? ResultText { get; init; }
     public string ResultBrush { get; init; } = "MutedBrush";
+
+    /// <summary>What the line opens inside Timeline: "drivers" (every driver) or "driver:" and a device (null: nothing).</summary>
+    public string? Opens { get; init; }
+    public bool CanOpen => Opens is not null;
+    /// <summary>An arrow after the value (the list of every driver); a line opening one driver has none (approved mock-up v8).</summary>
+    public bool HasArrow { get; init; }
 }
 
 /// <summary>
@@ -382,18 +388,20 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     internal void Apply(TimelineData data, bool onlyIfChanged = false)
     {
-        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{data.Marks.Count}|{data.Marks.Sum(m => m.Count)}|{data.Marks.LastOrDefault()?.Time.Ticks}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Results.OrderBy(e => e.Key).Select(e => e.Value.Headline + e.Value.Why))}";
+        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{data.Marks.Count}|{data.Marks.Sum(m => m.Count)}|{data.Marks.LastOrDefault()?.Time.Ticks}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Results.OrderBy(e => e.Key).Select(e => e.Value.Headline + e.Value.Why))}"
+            + $"|{data.Drivers?.Devices.Count}|{data.Drivers?.Steps.Count}|{data.Drivers?.Devices.Count(d => d.Gone)}";
         bool same = signature == _signature;
         _signature = signature;
         Now = Models.Kept.Or(Now, BuildNow(data));
         if (same && (onlyIfChanged || Loaded)) return;
 
-        _changes = data.Changes;
+        _changes = WithDrivers(data);
         _problems = data.Problems;
         _marks = data.Marks;
         _results = data.Results;
         Loaded = true;
         if (Opened is { } open) Opened = _results.TryGetValue(open.Day, out var still) ? CaseOf(still) : null;
+        RefreshDriverViews();
         Rebuild(keepPlace: Days.Count > 0);
     }
 
@@ -466,7 +474,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         if (words.Length > 0)
         {
             // Found by the words as saved or as shown (searching in Spanish finds "actualizado").
-            changes = [.. changes.Where(c => Core.TextMatch.Has(words, c.Title, c.Was, c.Now) || Core.TextMatch.Has(words, c.Shown))];
+            changes = [.. changes.Where(c => Core.TextMatch.Has(words, c.Title, c.Was, c.Now) || Core.TextMatch.Has(words, c.Shown) || Core.TextMatch.Has(words, ShownOf(c)))];
             problems = [.. problems.Where(p => Core.TextMatch.Has(words, p.Title))];
             marks = [.. marks.Where(m => Core.TextMatch.Has(words, m.Text, m.Note))];
         }
@@ -623,7 +631,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             Day = day,
             Title = ago switch { 0 => Lang.T("Today"), 1 => Lang.T("Yesterday"), _ => day.ToString("dddd d") },
             SubTitle = ago <= 1 ? day.ToString("dddd, d MMMM") : "",
-            Month = newMonth ? day.ToString("MMMM yyyy").ToUpper(CultureInfo.CurrentCulture) : null,
+            Month = newMonth ? TimeText.At(day, "MMMM yyyy").ToUpper(CultureInfo.CurrentCulture) : null,
             NodeBrush = NodeOf(changes, problems, marks),
             // Newest first; a drive's space is the whole day's (dated at its midnight) and comes last.
             Entries = [.. entries.OrderByDescending(e => e.At).Select(e => e.Entry)],
@@ -763,7 +771,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             bool updates = key is "updated" or "games";
             var names = updates
                 ? of.GroupBy(NameOf).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key).ToList()
-                : [.. of.Select(c => c.Shown)];
+                : [.. of.Select(ShownOf)];
             int shown = updates ? 8 : 3;
             string list = string.Join(", ", names.Take(shown));
             int more = names.Count - shown;
@@ -771,7 +779,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             {
                 Key = key, TimeText = Span(of.Select(c => c.Time)), Icon = IconOf(of[0].Kind), Title = Lang.F(many, of.Count), IsKey = of[0].IsSystemLevel,
                 Detail = more > 0 ? Lang.T($"{list} and {more} more") : list,
-                Children = [.. of.Select(c => new TimelineEntry { Title = c.Shown, Detail = c.Was is null ? $"{c.Time:d MMM}" : Lang.T($"{c.Time:d MMM} · was {c.Was}"), GameKey = GameKeyOf(c) })],
+                Children = [.. of.Select(c => MonthDriverChild(c) ?? new TimelineEntry { Title = c.Shown, Detail = c.Was is null ? $"{c.Time:d MMM}" : Lang.T($"{c.Time:d MMM} · was {c.Was}"), GameKey = GameKeyOf(c) })],
                 ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, key)),
             });
         }
@@ -790,7 +798,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     }
 
     /// <param name="when">Said in place of its time of day (under a month: its date).</param>
-    private static TimelineEntry EntryOf(SystemChange c, string? when = null) => new()
+    private TimelineEntry EntryOf(SystemChange c, string? when = null) => DriverEntryOf(c, when ?? TimeOf(c), TipOf(c)) ?? new()
     {
         TimeText = when ?? TimeOf(c),
         TimeTip = TipOf(c),
@@ -880,6 +888,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         if (entry.IsDelay) OpenDelay(entry);
         else if (entry.IsProblem) OpenCrashes(entry);
         else if (entry.GameKey is not null) OpenGame(entry);
+        else if (entry.DriverKey is not null) OpenDriverEntry(entry);
     }
 
     [RelayCommand]
@@ -962,7 +971,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
                 .Concat(Marked(day.Marks.Where(m => !m.Sound && m.Delay is null).ToList()))
                 .Concat(Delays(day.Marks.Where(m => m.Delay is not null).ToList()))
                 .Concat(Sound(day.Marks.Where(m => m.Sound).ToList()))
-                .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(c => c.Shown)).ToList();
+                .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(ShownOf)).ToList();
             if (day.Changes.Count > 5) lines.Add(Lang.T($"and {day.Changes.Count - 5} more"));
             cell.Tip = string.Join("\n", lines);
         }
@@ -974,7 +983,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             marks.Count switch { 0 => [], 1 => [marks[0].Text], _ => [Core.Sound.SoundDropouts.Title(marks.Sum(m => m.Count), null)] };
         static string[] Delays(List<TimelineMark> marks) =>
             marks.Count switch { 0 => [], 1 => [marks[0].Text], var n => [Lang.T($"Drivers kept the CPU busy much longer than usual {n} times")] };
-        CalendarTitle = m.ToString("MMMM yyyy");
+        CalendarTitle = TimeText.At(m, "MMMM yyyy");
         CanGoBack = m > FirstMonth;
         CanGoForward = m < ThisMonth;
     }
@@ -1039,12 +1048,13 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// <summary>The change opened from its result: the page shows it in place of the list until Back.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsChangeOpen), nameof(IsListShown))]
+    [NotifyPropertyChangedFor(nameof(IsDriverShown), nameof(IsEveryDriverShown))]
     private Models.ChangeCase? _opened;
 
     public bool IsChangeOpen => Opened is not null;
 
-    /// <summary>The list, the calendar and This PC now: hidden while a change is open.</summary>
-    public bool IsListShown => Opened is null;
+    /// <summary>The list, the calendar and This PC now: hidden while a change, a driver or every driver is open.</summary>
+    public bool IsListShown => Opened is null && !IsDriverViewOpen;
 
     // ── A driver mark (issue #15 follow-up): opens on the Latency page ──
 
@@ -1168,7 +1178,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         if (items[Inventory.Windows].FirstOrDefault() is { } windows)
             facts.Add(Fact("Windows", $"{windows.Name.Replace("Windows ", "")} {windows.Value}", c => c.Kind == ChangeKind.Windows));
         if (items[Inventory.GpuDriver].FirstOrDefault() is { } driver)
-            facts.Add(Fact(Lang.T("Graphics driver"), driver.Value, c => c.IsGraphicsDriver));
+            facts.Add(Fact(Lang.T("Graphics driver"), driver.Value, c => c.IsGraphicsDriver) with { Opens = GraphicsOpens(data) });
+        if (DriversFact(data) is { } drivers) facts.Add(drivers);
         if (items[Inventory.Bios].FirstOrDefault() is { } bios)
             facts.Add(Fact("BIOS", bios.Value, c => c.Kind == ChangeKind.Firmware));
         if (items[Inventory.Ram].FirstOrDefault() is { } ram) facts.Add(new(Lang.T("Memory"), ram.Value, null));

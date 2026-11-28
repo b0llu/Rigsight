@@ -253,7 +253,7 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// Pages added after people could save their own sidebar order: one goes right after the page before it here (Games
     /// under Apps) rather than at the end of its group.
     /// </summary>
-    private static readonly HashSet<string> AddedLater = ["games", "power", "latency"];
+    private static readonly HashSet<string> AddedLater = ["games", "power", "latency", "startup"];
 
     /// <summary>
     /// "The basics" (2026-10-25): the pages someone who mostly wants to know their PC is fine looks at. Every other page is
@@ -271,6 +271,8 @@ public sealed partial class SidebarViewModel : ObservableObject
         ("processes", Lang.Key("Processes"), "", MainSection),
         ("crashes", Lang.Key("Crashes"), "", MainSection),
         ("timeline", Lang.Key("Timeline"), "", MainSection),
+        // How long each start took (1.22.0): a power button.
+        ("startup", Lang.Key("Start-up"), "", MainSection),
         // Driver delays and the app wake-up check (issue #15): a stopwatch.
         ("latency", Lang.Key("Latency"), "", MainSection),
         ("temperatures", Lang.Key("Temperatures"), "", HardwareSection),
@@ -304,6 +306,7 @@ public sealed partial class SidebarViewModel : ObservableObject
         ["games"] = new(0, 29, 0),
         ["power"] = new(1, 18, 0),
         ["latency"] = new(1, 19, 0),
+        ["startup"] = new(1, 22, 0),
     };
 
     /// <summary>
@@ -320,6 +323,7 @@ public sealed partial class SidebarViewModel : ObservableObject
         "crashes" => Lang.T("Crashes and blue screens"),
         "timeline" => Lang.T("What changed on this PC"),
         "latency" => Lang.T("How long drivers held the CPU"),
+        "startup" => Lang.T("How long each start took"),
         "temperatures" => Lang.T("Heat of each part"),
         "power" => Lang.T("What the parts draw"),
         "fans" => Lang.T("How fast each fan spins"),
@@ -337,6 +341,7 @@ public sealed partial class SidebarViewModel : ObservableObject
     public static string PitchOf(string key) => key switch
     {
         "latency" => Lang.T("How long drivers kept a CPU core busy, and how long apps waited to run."),
+        "startup" => Lang.T("How long this PC takes to start, and what was different when a start took longer."),
         _ => DescriptionOf(key) + ".",
     };
 
@@ -907,7 +912,14 @@ public sealed partial class SidebarViewModel : ObservableObject
         {
             if (order.IndexOf(e.Key) is var i and >= 0) return i;
             int b = Array.FindIndex(BuiltIn, x => x.Key == e.Key);
-            if (AddedLater.Contains(e.Key) && b > 0 && order.IndexOf(BuiltIn[b - 1].Key) is var before and >= 0) return before + 0.5;
+            // Under the nearest built-in page before it that the saved order knows, so two pages added since (Start-up and
+            // Latency for settings from before both) keep their built-in order between them.
+            if (AddedLater.Contains(e.Key))
+                for (int k = b - 1; k >= 0; k--)
+                {
+                    if (order.IndexOf(BuiltIn[k].Key) is var before and >= 0) return before + 0.5 + b / 1000.0;
+                    if (!AddedLater.Contains(BuiltIn[k].Key)) break; // only past pages that came later too
+                }
             return int.MaxValue;
         }
         var wanted = Groups.ToDictionary(g => g, g => _entries.Where(e => GroupKeyOf(e) == g.Key).OrderBy(Rank).ToList());
