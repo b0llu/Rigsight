@@ -6,8 +6,9 @@ namespace Rigsight.Agent.Sensors.Devices;
 /// Logitech mice, keyboards and pads on a Logitech receiver (LIGHTSPEED, Unifying, Bolt) or on their cable, read the
 /// way Logitech documents for its own devices (HID++ 2.0): the device's name and kind, then its battery from the
 /// Unified Battery feature (a percent, and whether it's charging) or the older Battery Status one. Questions only:
-/// nothing is ever set on a device. A device that reports only a voltage (some older gaming mice) isn't read, since
-/// turning a voltage into a percent needs a curve for each model.
+/// nothing is ever set on a device. A device that reports only a voltage (Battery Voltage, 1001: some older gaming
+/// mice like the G502 LIGHTSPEED) gets a percent estimated from that voltage (user's ruling 2026-11-28), said as an
+/// estimate where it's shown; a device in G HUB shows G HUB's figure instead (see <see cref="DeviceBatteries"/>).
 /// One thread only (<see cref="DeviceBatteries"/>'s).
 /// </summary>
 internal sealed class LogitechDevices : IDisposable
@@ -25,6 +26,11 @@ internal sealed class LogitechDevices : IDisposable
         public required byte Index, BatteryFeature;
         public required ushort BatteryType;
         public DeviceBattery? Last;
+        // A voltage-only device: its last few voltages while not charging (averaged, so one dip under load doesn't
+        // swing the estimate), whether it was charging at the last reading, and its last estimate before charging.
+        public readonly List<int> Volts = [];
+        public bool? WasCharging;
+        public double? Estimate;
     }
 
     /// <summary>A receiver's (or a device's) two HID++ ports: long reports for questions and answers, short ones for its "nothing there".</summary>
@@ -109,16 +115,16 @@ internal sealed class LogitechDevices : IDisposable
             if (unified == 0) status = Feature(r, index, 0x1000);
             if (unified == 0 && status == 0) voltage = Feature(r, index, 0x1001);
             string where = $"{r.Port.Vendor:x4}:{r.Port.Product:x4} place {index}";
-            if (unified == 0 && status == 0)
+            if (unified == 0 && status == 0 && voltage == 0)
             {
-                Log.Write("devices", $"Logitech {name} ({where}): expected a battery feature (1004 or 1000); found "
-                    + (voltage != 0 ? "only a voltage (1001), not read" : "none"));
+                Log.Write("devices", $"Logitech {name} ({where}): expected a battery feature (1004, 1000 or 1001); found none");
                 continue;
             }
             var device = new Device
             {
                 Key = $"logitech/{r.Port.Product:x4}/{index}/{name}", Name = name, Kind = kind.Value, Index = index,
-                BatteryFeature = unified != 0 ? unified : status, BatteryType = unified != 0 ? (ushort)0x1004 : (ushort)0x1000,
+                BatteryFeature = unified != 0 ? unified : status != 0 ? status : voltage,
+                BatteryType = unified != 0 ? (ushort)0x1004 : status != 0 ? (ushort)0x1000 : (ushort)0x1001,
             };
             r.Devices.Add(device);
             Log.Write("devices", $"Logitech {name} ({kind}, {where}): battery from feature {device.BatteryType:x4}");
@@ -159,12 +165,71 @@ internal sealed class LogitechDevices : IDisposable
     private DeviceBattery? Battery(Receiver r, Device d)
     {
         var a = Ask(r, d.Index, d.BatteryFeature, d.BatteryType == 0x1004 ? (byte)1 : (byte)0, []);
-        if (a is null) return null;
+        if (a is null) { d.Volts.Clear(); return null; }
+        if (d.BatteryType == 0x1001) return FromVoltage(d, a[4] << 8 | a[5], a[6]);
         var reading = d.BatteryType == 0x1004 ? Unified(a[4], a[5], a[6], a[7]) : Status(a[4], a[6]);
         if (reading is not var (percent, level, charging)) return null;
         // Full on power where it says so (1.22.0: "Full" after 100%), else charging or not.
         var charge = d.BatteryType == 0x1004 ? DeviceCharge.FromUnified(a[6], a[7]) : DeviceCharge.FromStatus(a[6]);
         return new DeviceBattery(d.Key, d.Name, d.Kind, percent, level, charging, true, "Logitech receiver") { Charge = charge };
+    }
+
+    /// <summary>
+    /// A voltage-only device's reading: the percent estimated from its voltage (averaged over its last 5 readings), said
+    /// as an estimate. While it charges the voltage reads high, so its last estimate from before stays, with the bolt;
+    /// full on power is 100%.
+    /// </summary>
+    private static DeviceBattery? FromVoltage(Device d, int millivolts, byte flags)
+    {
+        var charge = VoltageCharge(flags);
+        bool charging = charge != ChargeState.NotCharging;
+        if (d.WasCharging != charging) d.Volts.Clear();
+        d.WasCharging = charging;
+        double? percent;
+        if (charge == ChargeState.Full) percent = 100;
+        else if (charging) percent = d.Estimate;
+        else
+        {
+            d.Volts.Add(millivolts);
+            if (d.Volts.Count > 5) d.Volts.RemoveAt(0);
+            percent = d.Estimate = EstimateFromVoltage((int)Math.Round(d.Volts.Average()));
+        }
+        Trace?.Invoke($"{d.Name}: {millivolts} mV, flags {flags:x2} -> {percent}");
+        if (percent is null) return null;
+        return new DeviceBattery(d.Key, d.Name, d.Kind, percent, null, charging, true, TrayParts.ViaVoltage) { Charge = charge };
+    }
+
+    /// <summary>
+    /// Battery Voltage's flags: bit 7 on outside power, then its two low bits say how (0 charging, 1 full, 2 on power
+    /// but not charging, 3 a fault).
+    /// </summary>
+    internal static ChargeState VoltageCharge(byte flags) =>
+        (flags & 0x80) == 0 ? ChargeState.NotCharging : (flags & 0x03) switch { 0 => ChargeState.Charging, 1 => ChargeState.Full, _ => ChargeState.NotCharging };
+
+    // A single lithium cell at rest, millivolts to percent (a common published chart for one Li-ion/LiPo cell).
+    private static readonly (int Mv, int Percent)[] Cell =
+    [
+        (3270, 0), (3610, 5), (3690, 10), (3710, 15), (3730, 20), (3750, 25), (3770, 30), (3790, 35), (3800, 40),
+        (3820, 45), (3840, 50), (3850, 55), (3870, 60), (3910, 65), (3950, 70), (3980, 75), (4020, 80), (4080, 85),
+        (4110, 90), (4150, 95), (4200, 100),
+    ];
+
+    /// <summary>
+    /// A percent from a voltage, along one lithium cell's chart, in whole percents. An estimate: the device doesn't say
+    /// its charge, and every battery differs a little (user's ruling 2026-11-28: estimated, and said so where shown).
+    /// </summary>
+    internal static double EstimateFromVoltage(int millivolts)
+    {
+        if (millivolts <= Cell[0].Mv) return 0;
+        if (millivolts >= Cell[^1].Mv) return 100;
+        for (int i = 1; i < Cell.Length; i++)
+            if (millivolts <= Cell[i].Mv)
+            {
+                var (lowMv, lowP) = Cell[i - 1];
+                var (highMv, highP) = Cell[i];
+                return Math.Round(lowP + (highP - lowP) * (double)(millivolts - lowMv) / (highMv - lowMv));
+            }
+        return 100;
     }
 
     /// <summary>

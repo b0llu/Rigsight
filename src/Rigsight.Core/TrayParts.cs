@@ -33,11 +33,19 @@ public static class TrayParts
     /// <summary>The hardware type of a wireless device RigSight reads a battery from (not one of the library's).</summary>
     public const string DeviceHardwareType = "Device";
 
+    /// <summary>A Logitech device's battery as Logitech G HUB has it (1.23.2): said on its group instead of how it's reached.</summary>
+    public const string ViaGHub = "Logitech G HUB";
+
+    /// <summary>A device that gives only its battery's voltage, its percent estimated from it (1.23.2): said on its group.</summary>
+    public const string ViaVoltage = "Estimated from voltage";
+
     /// <summary>How a wireless device is reached, as shown on its group ("Bluetooth"), in the person's language.</summary>
     public static string DeviceVia(string via) => via switch
     {
         "Bluetooth" => Lang.T("Bluetooth"),
         "Logitech receiver" => Lang.T("Logitech receiver"),
+        ViaGHub => Lang.T("Logitech G HUB"),
+        ViaVoltage => Lang.T("Estimated from voltage"),
         "Xbox Wireless" => Lang.T("Xbox Wireless"),
         _ => via,
     };

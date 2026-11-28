@@ -187,6 +187,9 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.23.2", 11, 28,
+            added: [Lang.T("Logitech devices listed in G HUB show the battery G HUB shows, while G HUB is running."),
+                Lang.T("Logitech mice that give only a voltage, like the G502 LIGHTSPEED, show a battery estimated from it, marked as an estimate.")]),
         V("1.23.1", 11, 28,
             added: [Lang.T("Logitech PRO X 2 LIGHTSPEED, PRO X 3 LIGHTSPEED and G522 LIGHTSPEED headsets now show their battery, read from their receiver.")]),
         V("1.23.0", 11, 28,

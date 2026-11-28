@@ -17,6 +17,9 @@ internal sealed class DeviceBatteries : IDisposable
 
     private readonly LogitechDevices _logitech = new();
     private readonly LogitechHeadsets _headsets = new();
+    private readonly GHubBatteries _ghub = new();
+    // A device only G HUB knows (no reading of its own here): its last reading, kept while it's off, like the others.
+    private readonly Dictionary<string, DeviceBattery> _ghubOnly = [];
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _stop = new();
     private readonly AutoResetEvent _now = new(false);
@@ -48,13 +51,17 @@ internal sealed class DeviceBatteries : IDisposable
         while (!_stop.IsSet)
         {
             var list = new List<DeviceBattery>();
-            Take(list, "Logitech", () => _logitech.Read(Environment.TickCount64));
-            Take(list, "Logitech headset", () => _headsets.Read(Environment.TickCount64));
+            var logitech = new List<DeviceBattery>();
+            Take(logitech, "Logitech", () => _logitech.Read(Environment.TickCount64));
+            Take(logitech, "Logitech headset", () => _headsets.Read(Environment.TickCount64));
+            List<GHubBatteries.Item>? ghub = null;
+            try { ghub = _ghub.Read(); } catch (Exception ex) { Log.Write("devices", $"Reading G HUB batteries failed: {ex.Message}"); }
+            list.AddRange(WithGHub(logitech, ghub, _ghubOnly));
             Take(list, "Bluetooth", WindowsDevices.Bluetooth);
             Take(list, "Xbox", WindowsDevices.Xbox);
             if (RigsightPaths.IsTestInstance) Take(list, "test", TestDevices);
             if (first || Changed(_current, list))
-                Log.Write("devices", list.Count == 0 ? "No wireless device gave a battery level (looked at Logitech receivers and headsets, Bluetooth, Xbox controllers)"
+                Log.Write("devices", list.Count == 0 ? "No wireless device gave a battery level (looked at Logitech receivers and headsets, Logitech G HUB, Bluetooth, Xbox controllers)"
                     : "Batteries: " + string.Join(", ", list.Select(d => $"{d.Name} {(d.Percent is double p ? $"{p:0}%" : d.Level?.ToString())}"
                         + $"{(d.Charge == ChargeState.Full ? " full on power" : d.Charging == true ? " charging" : "")}{(d.Connected ? "" : " (not connected, last reading)")} via {d.Via}")));
             first = false;
@@ -63,6 +70,43 @@ internal sealed class DeviceBatteries : IDisposable
             WaitHandle.WaitAny([_stop.WaitHandle, _now], EveryMs);
         }
     }
+
+    /// <summary>
+    /// The Logitech devices' readings, with G HUB's figure in place of a device's own wherever G HUB has the device
+    /// (user's ruling 2026-11-28: G HUB above everything, then the device's own percent, then an estimate from its
+    /// voltage). A
+    /// device only G HUB has is added; while it's off (G HUB still running) its last reading stays, not connected.
+    /// </summary>
+    internal static List<DeviceBattery> WithGHub(List<DeviceBattery> own, IReadOnlyList<GHubBatteries.Item>? ghub, Dictionary<string, DeviceBattery> ghubOnly)
+    {
+        if (ghub is null) { ghubOnly.Clear(); return own; }
+        var used = new HashSet<GHubBatteries.Item>();
+        var list = new List<DeviceBattery>();
+        foreach (var d in own)
+        {
+            var g = ghub.FirstOrDefault(g => !used.Contains(g) && GHubBatteries.Same(d.Name, g));
+            if (g is not null) used.Add(g);
+            // In G HUB: G HUB's figure only, even when the device gives its own (not connected while G HUB says it's off).
+            list.Add(g is null ? d : FromGHub(g, d.Key, d.Name, d.Kind) with { Connected = g.Active });
+        }
+        var seen = new HashSet<string>();
+        foreach (var g in ghub.Where(g => !used.Contains(g)))
+        {
+            string key = "ghub/" + g.Name;
+            if (!seen.Add(key)) continue;
+            if (g.Active) list.Add(ghubOnly[key] = FromGHub(g, key, g.Name, g.Kind));
+            else if (ghubOnly.TryGetValue(key, out var last)) list.Add(last with { Connected = false });
+        }
+        foreach (var (key, last) in ghubOnly)
+            if (!seen.Contains(key) && !list.Any(d => d.Key == key)) list.Add(last with { Connected = false });
+        return list;
+    }
+
+    private static DeviceBattery FromGHub(GHubBatteries.Item g, string key, string name, DeviceKind kind) =>
+        new(key, name, kind, g.Percent, null, g.Charging || g.Full, true, TrayParts.ViaGHub)
+        {
+            Charge = g.Full ? ChargeState.Full : g.Charging ? ChargeState.Charging : ChargeState.NotCharging,
+        };
 
     private static void Take(List<DeviceBattery> into, string what, Func<List<DeviceBattery>> read)
     {
