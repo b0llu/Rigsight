@@ -32,6 +32,34 @@ public sealed record LatencyLine(string Icon, string Text, bool Warm = false, bo
 public sealed record LatencyDriverRow(string Driver, string Icon, string Who, string File, string Longest, string Over, bool HasOver, string Busy, string Usual, string Tip,
     string IconBrush = "MutedBrush", string IconBack = "Surface2Brush", double Share = 0);
 
+/// <summary>
+/// A row of Drivers right now (1.23.0, issue #18 item 11): one per driver, kept while the driver keeps making calls and
+/// changed in place every 2 seconds, so the list is never built again as it moves.
+/// </summary>
+public sealed partial class LiveDriverRow(string driver) : ObservableObject
+{
+    /// <summary>Its file, the row's key; it opens as an Every driver row does.</summary>
+    public string Driver { get; } = driver;
+    [ObservableProperty] private string _icon = "";
+    [ObservableProperty] private string _iconBrush = "MutedBrush";
+    [ObservableProperty] private string _iconBack = "Surface2Brush";
+    [ObservableProperty] private string _who = "";
+    [ObservableProperty] private string _file = "";
+    [ObservableProperty] private string _busy = "";
+    [ObservableProperty] private string _longest = "";
+    /// <summary>Its longest call was 1 ms or longer: its dot amber, else blue.</summary>
+    [ObservableProperty] private bool _isLong;
+    [ObservableProperty] private string _calls = "";
+    /// <summary>Its time busy as a share of the busiest driver's: its bar.</summary>
+    [ObservableProperty] private double _share;
+    [ObservableProperty] private string _tip = "";
+
+    // What it's sorted by.
+    internal long BusyUs;
+    internal int LongestUs;
+    internal double Rate;
+}
+
 /// <summary>A line of What stood out: a driver mark (opens the driver here) or an update's before and after (opens it on Timeline).</summary>
 public sealed record LatencyMarkRow(string Icon, string Title, string Detail, string When, DelayStretch? Mark, DateTime? ResultDay);
 
@@ -201,14 +229,16 @@ public sealed partial class LatencyViewModel : ObservableObject
             ? (Lang.T("Driver timings aren't coming in right now."), Lang.T("Windows stopped giving them to RigSight for now. It tries again every half hour, and what was recorded before still shows below."))
             : (Lang.T("RigSight isn't running as administrator."), Lang.T("Windows only gives driver timings to apps with admin rights. What was recorded before still shows below."));
         int n = live.Seconds.Length;
-        if (n == 0) return;
         var parts = _page?.Report.Drivers.ToDictionary(d => d.Driver, d => d.Part, StringComparer.OrdinalIgnoreCase) ?? [];
+        if (live.DriversNow is { } now) ApplyDriversNow(now, live.DriversNowSeconds, parts);
+        if (n == 0) return;
 
         if (live.Drivers)
         {
             // Seconds are paired by the clock (an even second and the one after), not by their place in the 2 minutes: paired
             // by place, every new second moved each pair along one, and two bars side by side merged into one as it came in.
             var bars = new List<LiveBar>();
+            int longest = live.DriverUs.Max(), longCount = 0;
             for (int i = 0; i < n;)
             {
                 int j = i, us = live.DriverUs[i], next = i + 1;
@@ -219,8 +249,11 @@ public sealed partial class LatencyViewModel : ObservableObject
                 }
                 i = next;
                 string at = TimeText.At(TimeUtil.FromUnix(live.Seconds[j]), "h:mm:ss tt");
+                string file = live.Driver[j];
+                if (us >= DriverRules.LongUs) longCount++;
                 bars.Add(new LiveBar(us, us >= DriverRules.LongUs,
-                    us == 0 ? $"{at}\n{Lang.T("No driver call")}" : $"{at}\n{LatencyWords.Ms(us)}, {LatencyWords.Who(live.Driver[j], parts.GetValueOrDefault(live.Driver[j]))}"));
+                    us == 0 ? $"{at}\n{Lang.T("No driver call")}" : $"{at}\n{LatencyWords.Ms(us)}, {LatencyWords.Who(file, parts.GetValueOrDefault(file))}",
+                    () => LiveDriverTip(at, us, file, parts.GetValueOrDefault(file), longest, longCount)));
             }
             LiveDriverBars = bars;
             // The last 2 seconds, as the taskbar's Driver delay reads.
@@ -237,11 +270,13 @@ public sealed partial class LatencyViewModel : ObservableObject
         {
             WakeHow = LatencyWords.HowItRuns(live.WakeRate);
             var line = new List<LiveBar>();
+            int highest = live.WakeUs.Max(), rate = live.WakeRate;
             for (int i = 0; i < n; i++)
             {
-                int us = live.WakeUs[i];
+                int us = live.WakeUs[i], usual = live.WakeMedianUs[i];
                 string at = TimeText.At(TimeUtil.FromUnix(live.Seconds[i]), "h:mm:ss tt");
-                line.Add(new LiveBar(us, us >= DriverRules.LongUs, us == 0 ? $"{at}\n{Lang.T("No check")}" : $"{at}\n{Lang.T($"Longest {LatencyWords.Ms(us)}, usually {LatencyWords.Ms(live.WakeMedianUs[i])}")}"));
+                line.Add(new LiveBar(us, us >= DriverRules.LongUs, us == 0 ? $"{at}\n{Lang.T("No check")}" : $"{at}\n{Lang.T($"Longest {LatencyWords.Ms(us)}, usually {LatencyWords.Ms(usual)}")}",
+                    () => LiveWakeTip(at, us, usual, highest, rate)));
             }
             LiveWakeBars = line;
             var checkedSeconds = Enumerable.Range(0, n).Where(i => live.WakeUs[i] > 0).ToList();
@@ -254,6 +289,90 @@ public sealed partial class LatencyViewModel : ObservableObject
             else { LiveWakeNumber = "–"; LiveWakeNote = live.WakeRate == 0 ? Lang.T("Paused while Battery Saver is on.") : ""; }
         }
     }
+
+    // ── Drivers right now (1.23.0, issue #18 item 11, approved mock-up "New"): every driver of the last 10 seconds ──
+
+    public enum LiveSort { Busy, Longest, Calls }
+
+    [ObservableProperty] private LiveSort _liveDriverSort = LiveSort.Busy;
+    partial void OnLiveDriverSortChanged(LiveSort value) => SortLiveRows();
+
+    /// <summary>The rows, kept and changed in place; only their order moves.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<LiveDriverRow> LiveDriverRows { get; } = [];
+
+    /// <summary>No list from the agent yet since the page opened: the spinner.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LiveRowsEmpty), nameof(LiveRowsShown))] private bool _liveRowsWaiting = true;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LiveRowsEmpty), nameof(LiveRowsShown))] private bool _hasLiveRows;
+    public bool LiveRowsEmpty => !LiveRowsWaiting && !HasLiveRows;
+    public bool LiveRowsShown => !LiveRowsWaiting && HasLiveRows;
+
+    private readonly Dictionary<string, LiveDriverRow> _liveRowsByDriver = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The page went off screen: the rows go, so it opens again on the spinner rather than on old figures.</summary>
+    public void LiveClosed()
+    {
+        LiveDriverRows.Clear();
+        _liveRowsByDriver.Clear();
+        HasLiveRows = false;
+        LiveRowsWaiting = true;
+    }
+
+    private void ApplyDriversNow(List<LatencyDriverNow> now, int seconds, IReadOnlyDictionary<string, DriverPart?> parts)
+    {
+        LiveRowsWaiting = false;
+        long top = Math.Max(1, now.Count == 0 ? 1 : now.Max(d => d.BusyUs));
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var d in now)
+        {
+            if (!seen.Add(d.Driver)) continue;
+            if (!_liveRowsByDriver.TryGetValue(d.Driver, out var row))
+            {
+                row = new LiveDriverRow(d.Driver);
+                _liveRowsByDriver[d.Driver] = row;
+                LiveDriverRows.Add(row);
+            }
+            var part = parts.GetValueOrDefault(d.Driver);
+            (row.IconBrush, row.IconBack) = KindTint(d.Driver, part);
+            row.Icon = LatencyWords.Icon(d.Driver, part);
+            row.Who = LatencyWords.Who(d.Driver, part);
+            row.File = LatencyWords.File(d.Driver, part);
+            (row.BusyUs, row.LongestUs, row.Rate) = (d.BusyUs, d.LongestUs, LatencyWords.Rate(d.Calls, seconds));
+            row.Busy = LatencyWords.Ms(d.BusyUs);
+            row.Longest = LatencyWords.Ms(d.LongestUs);
+            row.IsLong = LatencyWords.IsLong(d.LongestUs);
+            row.Calls = LatencyWords.PerSecond(row.Rate);
+            row.Share = Math.Clamp((double)d.BusyUs / top, 0.02, 1);
+            row.Tip = LatencyWords.Split(d.DpcUs, d.IsrUs);
+        }
+        // Drivers that made no call in the window leave the list.
+        for (int i = LiveDriverRows.Count - 1; i >= 0; i--)
+            if (!seen.Contains(LiveDriverRows[i].Driver))
+            {
+                _liveRowsByDriver.Remove(LiveDriverRows[i].Driver);
+                LiveDriverRows.RemoveAt(i);
+            }
+        SortLiveRows();
+        HasLiveRows = LiveDriverRows.Count > 0;
+    }
+
+    // The order by the heading picked, by moving rows (never rebuilding them); the name breaks ties so equal rows don't swap.
+    private void SortLiveRows()
+    {
+        var order = (LiveDriverSort switch
+        {
+            LiveSort.Longest => LiveDriverRows.OrderByDescending(r => r.LongestUs).ThenByDescending(r => r.BusyUs),
+            LiveSort.Calls => LiveDriverRows.OrderByDescending(r => r.Rate).ThenByDescending(r => r.BusyUs),
+            _ => LiveDriverRows.OrderByDescending(r => r.BusyUs),
+        }).ThenBy(r => r.Driver, StringComparer.OrdinalIgnoreCase).ToList();
+        for (int i = 0; i < order.Count; i++)
+        {
+            int at = LiveDriverRows.IndexOf(order[i]);
+            if (at != i) LiveDriverRows.Move(at, i);
+        }
+    }
+
+    [RelayCommand]
+    private Task OpenLiveDriver(LiveDriverRow row) => OpenDriverAsync(row.Driver, keepFrom: false);
 
     private static string LiveWho(string driver, IReadOnlyDictionary<string, DriverPart?> parts) =>
         driver.Length == 0 ? LatencyWords.Who("", null) : $"{LatencyWords.Who(driver, parts.GetValueOrDefault(driver))} · {driver}";
@@ -278,6 +397,8 @@ public sealed partial class LatencyViewModel : ObservableObject
     [ObservableProperty] private bool _chartShowsGuidance = true;
     /// <summary>The bars' colour: the wake-up check's violet for its own chart (as its live line), else the text colour.</summary>
     [ObservableProperty] private string _chartBrush = "TextBrush";
+    /// <summary>The colour of delays of 1 ms or longer (the amber, driver delays only); null: the bars' own, in full.</summary>
+    [ObservableProperty] private string? _chartLongBrush = "WarmBrush";
     [ObservableProperty] private string _chartNote = "";
 
     // ── The drivers ──
@@ -346,8 +467,10 @@ public sealed partial class LatencyViewModel : ObservableObject
         bool hourly = (r.To - r.From).TotalDays <= LatencyReport.HourlyDays;
         ChartIsMs = Metric != ChartMetric.Over;
         ChartShowsGuidance = Metric == ChartMetric.Driver;
-        // One blue for the drivers (brighter over 1 ms), the wake-up check's violet for its own (1.22.0).
+        // Driver delays blue under 1 ms and amber from 1 ms (1.23.0, the owner's "Blue and amber"); the wake-up check's
+        // violet for its own (1.22.0), brighter from 1 ms; calls over 1 ms are counts, in one blue.
         ChartBrush = Metric == ChartMetric.Wake ? "PurpleBrush" : "CpuBrush";
+        ChartLongBrush = Metric == ChartMetric.Driver ? "WarmBrush" : null;
         ShowLegend = Metric == ChartMetric.Driver;
         ChartTitle = (Metric, hourly) switch
         {
@@ -394,7 +517,7 @@ public sealed partial class LatencyViewModel : ObservableObject
         Slots = slots;
     }
 
-    /// <summary>The chart's legend: Over 1 ms and Under 1 ms, for the driver delays.</summary>
+    /// <summary>The chart's legend: Under 1 ms and 1 ms or longer, for the driver delays.</summary>
     [ObservableProperty] private bool _showLegend = true;
 
     /// <summary>
@@ -426,6 +549,51 @@ public sealed partial class LatencyViewModel : ObservableObject
             Facts = facts,
             Notes = others.Count > 0 ? [new RichNote(f.OthersLabel, others)] : [],
             Mark = f.Lost ? Lang.T("Windows dropped some readings in this time, so a longer delay could be missing.") : null,
+        };
+    }
+
+    /// <summary>
+    /// A bar of Right now's driver strip (1.23.0, the hover rule: as useful as Reports' and Games' hovers): its 2 seconds,
+    /// the longest call big, who made it (the driver's kind icon, its name and file), and how it sits in the 2 minutes shown
+    /// (the longest there, and how many bars reached 1 ms). Figures in the text colour; the bar itself carries the amber.
+    /// </summary>
+    private static RichTip LiveDriverTip(string at, int us, string file, DriverPart? part, int longest, int longCount)
+    {
+        if (us == 0) return new RichTip(at) { Big = Lang.T("No driver call"), Sub = Lang.T("In these 2 seconds") };
+        string who = LatencyWords.Who(file, part);
+        var by = new LatencyHoverDriver(file, who, part, LatencyWords.Ms(us));
+        var facts = new List<RichFact>
+        {
+            new(Lang.T("By"), who, Wide: true, Icon: KindIcon(by), Detail: file.Length > 0 ? file : null),
+            new(Lang.T("Longest in these 2 minutes"), LatencyWords.Ms(longest)),
+            new(Lang.T("1 ms or longer in these 2 minutes"), longCount == 0 ? Lang.T("None") : longCount == 1 ? Lang.T("Once") : Lang.T($"{longCount} times")),
+        };
+        return new RichTip(at)
+        {
+            Sub = Lang.T("In these 2 seconds"),
+            Big = LatencyWords.Ms(us),
+            BigWord = Lang.T("longest driver call"),
+            Facts = facts,
+        };
+    }
+
+    /// <summary>
+    /// A second of Right now's app wake-up line (1.23.0): the longest wait big, against that second's usual and the
+    /// highest in the 2 minutes shown, and how often RigSight checks right now.
+    /// </summary>
+    private static RichTip LiveWakeTip(string at, int us, int usual, int highest, int rate)
+    {
+        if (us == 0) return new RichTip(at) { Big = Lang.T("No check"), Sub = rate == 0 ? Lang.T("Paused while Battery Saver is on.") : null };
+        return new RichTip(at)
+        {
+            Big = LatencyWords.Ms(us),
+            BigWord = Lang.T("longest wake-up"),
+            Facts =
+            [
+                new(Lang.T("Usually"), LatencyWords.Ms(usual)),
+                new(Lang.T("Highest in these 2 minutes"), LatencyWords.Ms(highest)),
+                new(Lang.T("Checks"), Lang.T($"{rate} a second"), Wide: true),
+            ],
         };
     }
 

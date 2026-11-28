@@ -31,6 +31,21 @@ public partial class StorageView : UserControl
         ReadingsBox.SizeChanged += (_, _) => KeepHeadOverColumns();
     }
 
+    private DayRangeCalendar? _useCalendar;
+
+    /// <summary>
+    /// Custom over "What reads and writes" (1.23.0): the shared day calendar (see <see cref="DayRangeCalendar"/>) opens under
+    /// the switch clicked, the page-wide card's or an opened drive's; the days picked become the period.
+    /// </summary>
+    private void UseCustom_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement button) return;
+        // The switch's own box (the button's row's parent), so the calendar's right edge sits on the switch's.
+        UseRangePopup.PlacementTarget = (button.Parent as FrameworkElement)?.Parent as FrameworkElement ?? button;
+        _useCalendar ??= new DayRangeCalendar(UseRangePopup, UseCal, UseRangeHint, () => DataContext as StorageViewModel);
+        _useCalendar.Open();
+    }
+
     /// <summary>A drive opened or closed: the page starts at its top.</summary>
     private void ToTop() => Page.ScrollToTop();
 

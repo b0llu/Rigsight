@@ -11,14 +11,15 @@ namespace Rigsight.Controls;
 /// null was not recorded, never drawn as 0.
 /// </summary>
 /// <param name="Lost">Windows dropped some readings in it: drawn grey, and its hover says so.</param>
-/// <param name="Long">1 ms or more: drawn in full, the rest softer.</param>
+/// <param name="Long">1 ms or more: drawn in full (in <see cref="LatencyChart.LongBrush"/> when set), the rest softer.</param>
 /// <param name="Start">When the slot starts and <paramref name="End"/> ends: what a stretch with nothing recorded says in its hover.</param>
 /// <param name="Rich">Since 1.22.0, its rich hover (see <see cref="RichHover"/>), made when first shown; null: the lines.</param>
 public sealed record LatencyChartSlot(string Axis, string Title, double? Value, bool Lost, bool Long, IReadOnlyList<string> Lines, DateTime Start = default, DateTime End = default,
     Func<RichTip>? Rich = null);
 
 /// <summary>One bar of a live strip: µs, whether it's 1 ms or more, and its hover.</summary>
-public sealed record LiveBar(double Us, bool Long, string Tip);
+/// <param name="Rich">Since 1.23.0, its rich hover (see <see cref="RichHover"/>), made when first shown; null: the lines of <paramref name="Tip"/>.</param>
+public sealed record LiveBar(double Us, bool Long, string Tip, Func<RichTip>? Rich = null);
 
 /// <summary>
 /// The Latency page's chart (issue #15, approved mock-up 2026-11-24): a bar each hour (or day), the longest driver delay,
@@ -35,6 +36,15 @@ public sealed class LatencyChart : FanChartBase
         nameof(Guidance), typeof(bool), typeof(LatencyChart), new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty BarBrushProperty = DependencyProperty.Register(
         nameof(BarBrush), typeof(Brush), typeof(LatencyChart), new FrameworkPropertyMetadata(Brushes.White, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty LongBrushProperty = DependencyProperty.Register(
+        nameof(LongBrush), typeof(Brush), typeof(LatencyChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>
+    /// Bars by level (1.23.0, issue #18 item 12, the owner's "Blue and amber"): a delay of 1 ms or longer
+    /// (<see cref="DriverRules.LongUs"/>) in this colour, the amber; the rest in a softer <see cref="BarBrush"/>. Null: one
+    /// colour, brighter from 1 ms (the app wake-up delay's violet, and charts of counts).
+    /// </summary>
+    public Brush? LongBrush { get => (Brush?)GetValue(LongBrushProperty); set => SetValue(LongBrushProperty, value); }
 
     /// <summary>Why a stretch has nothing recorded (its ends in Unix milliseconds), as on Temperatures: the PC was off, asleep, shut off suddenly.</summary>
     public static readonly DependencyProperty GapReasonProperty = DependencyProperty.Register(
@@ -134,7 +144,7 @@ public sealed class LatencyChart : FanChartBase
         {
             if (slots[i].Value is not double v || v <= 0) continue;
             double h = Math.Max(1.5, plot.Bottom - Y(v));
-            var brush = slots[i].Lost ? lost : slots[i].Long || !ms ? BarBrush : soft;
+            var brush = slots[i].Lost ? lost : !ms ? BarBrush : slots[i].Long ? LongBrush ?? BarBrush : soft;
             dc.DrawRoundedRectangle(brush, null, new Rect(X(i) - barW / 2, plot.Bottom - h, barW, h), Math.Min(2, barW / 3), Math.Min(2, barW / 3));
         }
 
@@ -239,6 +249,11 @@ public sealed class LiveStrip : FanChartBase
         nameof(Stroke), typeof(Brush), typeof(LiveStrip), new FrameworkPropertyMetadata(Brushes.White, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty FilledProperty = DependencyProperty.Register(
         nameof(Filled), typeof(bool), typeof(LiveStrip), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty LongBrushProperty = DependencyProperty.Register(
+        nameof(LongBrush), typeof(Brush), typeof(LiveStrip), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>Bars of 1 ms or longer in this colour (1.23.0, the amber), the rest in a softer <see cref="Stroke"/>; null: the stroke, in full.</summary>
+    public Brush? LongBrush { get => (Brush?)GetValue(LongBrushProperty); set => SetValue(LongBrushProperty, value); }
 
     /// <summary>A line with a soft fill of its colour under it, fading down (1.22.0, the app wake-up delay).</summary>
     public bool Filled { get => (bool)GetValue(FilledProperty); set => SetValue(FilledProperty, value); }
@@ -260,6 +275,10 @@ public sealed class LiveStrip : FanChartBase
         double top = PowerChart.NiceTop(max);
         double Y(double v) => plot.Bottom - plot.Height * Math.Clamp(v / top, 0, 1);
         double w = plot.Width / bars.Count;
+        // The bar or second under the pointer, its column lit behind the marks when it has a rich hover (1.23.0).
+        int? hovered = HoverX is double px && px >= 0 && px <= plot.Right ? Math.Clamp((int)(px / w), 0, bars.Count - 1) : null;
+        var column = hovered is int c ? new Rect(w * c, plot.Top, w, plot.Height) : Rect.Empty;
+        if (hovered is int lit && bars[lit].Rich is not null) RichHover.Lit(dc, column);
         if (IsLine)
         {
             var pen = new Pen(Stroke, 1.6) { LineJoin = PenLineJoin.Round };
@@ -288,7 +307,7 @@ public sealed class LiveStrip : FanChartBase
             {
                 if (bars[i].Us <= 0) continue;
                 double h = Math.Max(1.5, plot.Bottom - Y(bars[i].Us));
-                dc.DrawRoundedRectangle(bars[i].Long ? Stroke : soft, null, new Rect(w * i + 1, plot.Bottom - h, Math.Max(1, w - 2), h), 1.5, 1.5);
+                dc.DrawRoundedRectangle(bars[i].Long ? LongBrush ?? Stroke : soft, null, new Rect(w * i + 1, plot.Bottom - h, Math.Max(1, w - 2), h), 1.5, 1.5);
             }
             var pen = new Pen(Faded(LabelBrush, 0.8), 1) { DashStyle = new DashStyle([3, 3], 0) };
             pen.Freeze();
@@ -297,12 +316,30 @@ public sealed class LiveStrip : FanChartBase
             var t = Text(Lang.T("1 ms"), LabelBrush);
             dc.DrawText(t, new Point(plot.Right - t.Width, y - t.Height - 1));
         }
-        if (HoverX is double hx && hx >= 0 && hx <= plot.Right)
+        if (hovered is int at)
         {
-            int i = Math.Clamp((int)(hx / w), 0, bars.Count - 1);
-            var lines = bars[i].Tip.Split('\n');
-            Hover(dc, plot, w * (i + 0.5), lines[0], lines.Skip(1).ToList());
+            if (bars[at].Rich is { } make)
+                RichHover.Draw(dc, this, Tip(bars, at, make), column, new Rect(0, -RiseAbove, ActualWidth, ActualHeight + RiseAbove));
+            else
+            {
+                var lines = bars[at].Tip.Split('\n');
+                Hover(dc, plot, w * (at + 0.5), lines[0], lines.Skip(1).ToList());
+            }
         }
+    }
+
+    // The strip sits under the page's big figure: the hover rises over it rather than over the list below, which draws later.
+    private const double RiseAbove = 170;
+
+    // The hover of the bar under the pointer, made once while it stays there (the strip redraws every second).
+    private (IReadOnlyList<LiveBar>? Bars, int Index, RichTip? Tip) _tip;
+
+    private RichTip Tip(IReadOnlyList<LiveBar> bars, int i, Func<RichTip> make)
+    {
+        if (ReferenceEquals(_tip.Bars, bars) && _tip.Index == i && _tip.Tip is { } made) return made;
+        var tip = make();
+        _tip = (bars, i, tip);
+        return tip;
     }
 
     private static string Axis(double us) => us >= 1000 ? $"{us / 1000:0.#} ms" : $"{us / 1000:0.##} ms";

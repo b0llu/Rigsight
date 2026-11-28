@@ -15,9 +15,31 @@ public sealed class Sparkline : FrameworkElement
     public static readonly DependencyProperty SourceProperty = DependencyProperty.Register(
         nameof(Source), typeof(HistoryBuffer), typeof(Sparkline), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    // A new reading redraws the line, unless the list it's in is being scrolled (see Hold).
     public static readonly DependencyProperty VersionProperty = DependencyProperty.Register(
-        nameof(Version), typeof(long), typeof(Sparkline), new FrameworkPropertyMetadata(0L, FrameworkPropertyMetadataOptions.AffectsRender,
-            (d, _) => { if (((Sparkline)d)._hoverX is not null) ((Sparkline)d).ShowTip(); }));
+        nameof(Version), typeof(long), typeof(Sparkline), new FrameworkPropertyMetadata(0L,
+            (d, _) => { var s = (Sparkline)d; s.Redraw(); if (s._hoverX is not null) s.ShowTip(); }));
+
+    /// <summary>
+    /// Set on a list while it scrolls (All sensors, 1.23.0): the lines in it aren't drawn until it stops, then each one
+    /// that missed a reading or came into view meanwhile is drawn once. The readings themselves keep being kept (they're
+    /// in each sensor's history), so nothing is lost; only the drawing waits. Inherited by every line in the list.
+    /// </summary>
+    public static readonly DependencyProperty HoldProperty = DependencyProperty.RegisterAttached(
+        "Hold", typeof(bool), typeof(Sparkline), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits,
+            (d, e) => { if (d is Sparkline s && e.NewValue is false && s._stale) s.Redraw(); }));
+
+    public static bool GetHold(DependencyObject d) => (bool)d.GetValue(HoldProperty);
+    public static void SetHold(DependencyObject d, bool value) => d.SetValue(HoldProperty, value);
+
+    /// <summary>A reading came, or the line was asked to draw, while held: drawn once the hold ends.</summary>
+    private bool _stale;
+
+    private void Redraw()
+    {
+        if (GetHold(this)) _stale = true;
+        else InvalidateVisual();
+    }
 
     public static readonly DependencyProperty StrokeProperty = DependencyProperty.Register(
         nameof(Stroke), typeof(Brush), typeof(Sparkline), new FrameworkPropertyMetadata(Brushes.DeepSkyBlue, FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((Sparkline)d)._fill = null));
@@ -154,6 +176,13 @@ public sealed class Sparkline : FrameworkElement
     {
         // Transparent background so the whole area is hit-testable for tooltips.
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
+        // Held (its list is scrolling): a row just scrolled into view, or one handed another sensor, waits for the stop.
+        if (GetHold(this))
+        {
+            _stale = true;
+            return;
+        }
+        _stale = false;
 
         var buffer = Source;
         if (buffer is null || buffer.Count < 2 || ActualWidth < 4 || ActualHeight < 4) return;

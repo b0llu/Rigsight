@@ -8,6 +8,9 @@
              xmlns:vm="clr-namespace:Rigsight.ViewModels"
              xmlns:v="clr-namespace:Rigsight.Views">
     <UserControl.Resources>
+        <!-- This page, for the rows' triggers and buttons: a recycled row is out of the page while it changes kind, so they don't
+             look for the page above them (1.23.0). Set in the constructor. -->
+        <ctl:Proxy x:Key="View" />
         <Style x:Key="ColHeader" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
@@ -24,7 +27,7 @@
             <Setter Property="Width" Value="76" />
             <Setter Property="TextAlignment" Value="Right" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding ShowStats, RelativeSource={RelativeSource AncestorType={x:Type v:SensorsView}}}" Value="False">
+                <DataTrigger Binding="{Binding Data.ShowStats, Source={StaticResource View}}" Value="False">
                     <Setter Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
             </Style.Triggers>
@@ -33,21 +36,21 @@
             <Setter Property="Width" Value="76" />
             <Setter Property="TextAlignment" Value="Right" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding ShowStats, RelativeSource={RelativeSource AncestorType={x:Type v:SensorsView}}}" Value="False">
+                <DataTrigger Binding="{Binding Data.ShowStats, Source={StaticResource View}}" Value="False">
                     <Setter Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
         <Style x:Key="WithStats" TargetType="FrameworkElement">
             <Style.Triggers>
-                <DataTrigger Binding="{Binding ShowStats, RelativeSource={RelativeSource AncestorType={x:Type v:SensorsView}}}" Value="False">
+                <DataTrigger Binding="{Binding Data.ShowStats, Source={StaticResource View}}" Value="False">
                     <Setter Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
         <Style x:Key="WithSpark" TargetType="FrameworkElement">
             <Style.Triggers>
-                <DataTrigger Binding="{Binding ShowSpark, RelativeSource={RelativeSource AncestorType={x:Type v:SensorsView}}}" Value="False">
+                <DataTrigger Binding="{Binding Data.ShowSpark, Source={StaticResource View}}" Value="False">
                     <Setter Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
             </Style.Triggers>
@@ -112,20 +115,22 @@
                    Visibility="{Binding SensorsEmptyText, Converter={StaticResource Vis}}" />
 
         <!-- One flat, virtualized list: only the rows on screen are built, the rest as you scroll.
-             Each card is a header item, its sensor rows, and an end item, drawn so they join up. Rows aren't
-             recycled: a row reused for another kind of item briefly binds the old template to the new item. -->
+             Each card is a header item, its sensor rows, and an end item, drawn so they join up. Rows are recycled
+             (1.23.0): a row leaving the screen is handed the next item (RowList lets go of an item of another kind
+             first). It scrolls with Windows' own wheel, no glide, and its last-minute lines wait while it scrolls
+             (Sparkline.Hold): a fast spin of the wheel lagged with rows built new on every frame. -->
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <ItemsControl x:Name="SensorList" ItemsSource="{Binding SensorRows}" AllowDrop="True" DragOver="List_DragOver" Drop="List_Drop"
-                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"
-                          VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
+            <ctl:RowList x:Name="SensorList" ItemsSource="{Binding SensorRows}" AllowDrop="True" DragOver="List_DragOver" Drop="List_Drop"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                          VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True" ScrollViewer.ScrollChanged="List_ScrollChanged">
                 <ItemsControl.Template>
                     <ControlTemplate TargetType="ItemsControl">
                         <!-- The scrollbar has its own strip beside the cards: laid over them, it covered their right edge. -->
-                        <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0" CanContentScroll="True">
+                        <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0" CanContentScroll="True" ctl:SmoothWheel.Plain="True">
                             <ItemsPresenter Margin="0,0,0,32" />
                         </ScrollViewer>
                     </ControlTemplate>
@@ -232,7 +237,7 @@
                                 <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
                             </DataTrigger>
                             <!-- While a group is being dragged, every group is just its header. -->
-                            <DataTrigger Binding="{Binding DataContext.IsReordering, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
+                            <DataTrigger Binding="{Binding Data.DataContext.IsReordering, Source={StaticResource View}}" Value="True">
                                 <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
                                 <Setter TargetName="Columns" Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
@@ -273,7 +278,7 @@
                                                    VerticalAlignment="Center" Visibility="{Binding ShowsFull, Converter={StaticResource Vis}}" />
                                     </StackPanel>
                                     <Button Style="{StaticResource IconButton}" Margin="12,0,0,0" Width="36"
-                                            Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            Command="{Binding Data.DataContext.ToggleHiddenCommand, Source={StaticResource View}}"
                                             CommandParameter="{Binding}" ToolTip="{ctl:T 'Hide / show this sensor'}">
                                         <TextBlock x:Name="EyeGlyph" Text="&#xE7B3;" />
                                     </Button>
@@ -341,9 +346,14 @@
                                         <TextBlock Text="{Binding TypeLabel}" FontSize="{x:Static ctl:TextSize.Tiny}" FontWeight="Bold" TextWrapping="Wrap" TextAlignment="Center"
                                                    Foreground="{Binding Kind, Converter={StaticResource KindBrush}}" />
                                     </Border>
-                                    <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
-                                             Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
-                                             ToolTip="{Binding NameTip}" KeyDown="RenameBox_KeyDown" />
+                                    <!-- Its name, as plain text that looks like the rename box at rest; a click puts the box itself in its
+                                         place until the rename is done (see Name_MouseDown), so no row carries a box of its own. -->
+                                    <Border x:Name="NameShown" Grid.Column="1" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                                            CornerRadius="{x:Static ctl:Corner.Small}" Padding="5,2" VerticalAlignment="Center" Cursor="IBeam"
+                                            ToolTip="{Binding NameTip}" MouseLeftButtonDown="Name_MouseDown">
+                                        <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" Margin="2,0"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </Border>
                                     <Grid Grid.Column="2" Width="92" Style="{StaticResource WithSpark}">
                                         <ctl:Sparkline Height="22" Margin="12,0"
                                                        Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}"
@@ -383,7 +393,7 @@
                                     <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Stat}" />
                                     <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Stat}" />
                                     <Button Grid.Column="7" Style="{StaticResource IconButton}" HorizontalAlignment="Right"
-                                            Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            Command="{Binding Data.DataContext.ToggleHiddenCommand, Source={StaticResource View}}"
                                             CommandParameter="{Binding}" ToolTip="{ctl:T 'Hide / show this sensor'}">
                                         <TextBlock x:Name="EyeGlyph" Text="&#xE7B3;" />
                                     </Button>
@@ -399,6 +409,9 @@
                             <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Row" Property="Background" Value="{DynamicResource Surface2Brush}" />
                             </Trigger>
+                            <Trigger SourceName="NameShown" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="NameShown" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                            </Trigger>
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                 <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBrush}" />
                             </DataTrigger>
@@ -409,7 +422,7 @@
                         </DataTemplate.Triggers>
                     </DataTemplate>
                 </ItemsControl.Resources>
-            </ItemsControl>
+            </ctl:RowList>
 
             <!-- What stands out right now, read from every sensor: nothing to pick. A line jumps to its sensor in the list. -->
             <!-- As tall as what it says and never taller than the window: past that it scrolls by itself (it ran off the

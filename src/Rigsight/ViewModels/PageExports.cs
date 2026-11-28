@@ -29,6 +29,8 @@ public static class PageExports
         "power" => Power(shell.Power, shell.Reports, shell.Live, shell.Settings),
         "latency" => Latency(shell.Latency, shell.Reports),
         "startup" => Startup(shell.Startup, shell.Reports),
+        "gpu" => Part(shell.Gpu, shell.Reports, shell.Live, shell.Settings),
+        "cpu" => Part(shell.Cpu, shell.Reports, shell.Live, shell.Settings),
         "memory" => Memory(shell.Live),
         "storage" => Storage(shell.Storage),
         "network" => Network(shell.Network),
@@ -37,7 +39,7 @@ public static class PageExports
 
     /// <summary>Whether a page has an Export button.</summary>
     public static bool Has(string page) => page is "home" or "reports" or "apps" or "games" or "crashes" or "timeline" or "temperatures" or "fans" or "power"
-        or "latency" or "startup" or "memory" or "storage" or "network" || page.StartsWith("custom:", StringComparison.Ordinal);
+        or "latency" or "startup" or "gpu" or "cpu" or "memory" or "storage" or "network" || page.StartsWith("custom:", StringComparison.Ordinal);
 
     private static string From(string page) => Lang.T($"From the {page} page. Nothing leaves this PC.");
 
@@ -365,6 +367,30 @@ public static class PageExports
                         bool onScreen = unit == vm.Unit && anchor == vm.Anchor && vm.Loaded && !vm.IsLoading;
                         var facts = onScreen ? vm.SummaryFacts() : await PowerViewModel.SummaryAsync(reports, live, settings, unit, anchor);
                         return (_, _) => ExportSheets.Summary(Lang.T("Power summary"), Lang.T("What the Power page says about the period."), facts, run.From, run.To);
+                    },
+                },
+            ],
+            periods, IndexOf(periods, vm.Unit), null, [], NoFilter, FirstDay: vm.FirstDay);
+    }
+
+    // The GPU and CPU pages (1.23.0): each figure with a game in front and otherwise, and the apps that work it hardest.
+    private static PageExportSpec Part(PartViewModel vm, ReportService reports, LiveData live, SettingsModel settings)
+    {
+        var periods = Units(vm.Anchor, custom: false);
+        var (unitShown, anchorShown) = (vm.Unit, vm.Anchor);
+        bool gpu = vm.IsGpu;
+        return new(gpu ? Lang.T("Export GPU") : Lang.T("Export CPU"), From(vm.Title),
+            [
+                new(Lang.T("Summary"), Lang.T("Temperature, load, power and clock with a game in front and otherwise, and what works it hardest."), PageItemKind.Sheet, true)
+                {
+                    BytesPerDay = 200,
+                    SheetAsync = async run =>
+                    {
+                        var (unit, anchor) = (run.Choice?.Unit ?? unitShown, run.Choice?.Anchor ?? anchorShown);
+                        bool onScreen = unit == vm.Unit && anchor == vm.Anchor && vm.Loaded && !vm.IsLoading;
+                        var facts = onScreen ? vm.SummaryFacts() : await PartViewModel.SummaryAsync(vm.Part, reports, live, settings, unit, anchor);
+                        return (_, _) => ExportSheets.Summary(gpu ? Lang.T("GPU summary") : Lang.T("CPU summary"),
+                            gpu ? Lang.T("What the GPU page says about the period.") : Lang.T("What the CPU page says about the period."), facts, run.From, run.To);
                     },
                 },
             ],

@@ -15,6 +15,20 @@ public static class LatencyWords
     /// </summary>
     public static string Ms(double us) => us >= 100_000 ? Lang.T($"{us / 1000.0:N0} ms") : us >= 1000 ? DriverWords.Ms(us) : us < 10 ? Lang.T("under 0.01 ms") : Lang.T($"{us / 1000.0:0.00} ms");
 
+    /// <summary>A delay that reaches the page's line, 1 ms (<see cref="DriverRules.LongUs"/>): drawn amber, the rest blue (1.23.0, "Blue and amber").</summary>
+    public static bool IsLong(double us) => us >= DriverRules.LongUs;
+
+    /// <summary>Calls a second over <paramref name="seconds"/> seconds (Drivers right now, 1.23.0); 0 with no seconds.</summary>
+    public static double Rate(int calls, int seconds) => seconds <= 0 ? 0 : (double)calls / seconds;
+
+    /// <summary>Calls a second as said: whole from 10 ("410", "1,240"), one decimal under ("2.5", "0.1").</summary>
+    public static string PerSecond(double rate) => rate >= 10 ? rate.ToString("N0", System.Globalization.CultureInfo.CurrentCulture)
+        : rate.ToString("0.#", System.Globalization.CultureInfo.CurrentCulture);
+
+    /// <summary>How a driver's time splits between its DPCs and its interrupts, in the words its opened view uses.</summary>
+    public static string Split(long dpcUs, long isrUs) => isrUs <= 0 ? Lang.T("DPCs only") : dpcUs <= 0 ? Lang.T("Interrupts only")
+        : Lang.T($"{Ms(dpcUs)} in DPCs, {Ms(isrUs)} in interrupts");
+
     /// <summary>The figure alone, for the big number beside its small "ms": "6.8", "0.42", "0.01".</summary>
     public static string Number(double us) => us >= 1000 ? $"{Math.Round(us / 1000.0, 1):0.0}" : $"{Math.Max(0.01, us / 1000.0):0.00}";
 

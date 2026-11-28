@@ -197,15 +197,57 @@ public sealed partial class DriveGroup : ObservableObject
 /// <summary>A letter's space to free on the Storage overview: "Temporary files and the Recycle Bin", or not scanned yet.</summary>
 public sealed record CleanupLine(string Root, string Letter, string What, string Size, bool NeedsScan);
 
-/// <summary>One app's reads and writes on the drives over a period (see ReportService.DiskUseAsync); <see cref="MainDisk"/> is the drive it used most.</summary>
-public sealed record DiskUseLine(string Name, bool IsWindows, string? MainDisk, long Read, long Write)
+/// <summary>
+/// One app's reads and writes on the drives over a period (see ReportService.DiskUseAsync); <see cref="MainDisk"/> is the
+/// drive it used most, <see cref="Drives"/> each drive it used, busiest first (built in Core, <see cref="Core.Storage.AppDrives"/>).
+/// </summary>
+public sealed record DiskUseLine(string Name, bool IsWindows, string? MainDisk, long Read, long Write, string? Path = null)
 {
     public long Total => Read + Write;
+    public IReadOnlyList<Core.Storage.DriveShare> Drives { get; init; } = [];
 }
 
-/// <summary>A line of "What reads and writes": its name, its bars' widths against the top line, and the figure beside it ("190 GB · E").</summary>
-public sealed record DiskUseRow(string Name, bool IsWindows, double ReadShare, double WriteShare, string Figure, string ToolTip)
+/// <summary>
+/// A line of "What reads and writes" (1.23.0 mock-up, Storage): the app's icon and name with its drives under it, busiest
+/// first ("E:, C: and F:"), its read and written as one bar in two tones sized against the line with the most, and its
+/// total, read and written. A line on more than one drive opens in place to a line per drive (<see cref="Split"/>); on an
+/// opened drive's list there are no drives under the name and nothing opens.
+/// </summary>
+public sealed partial class DiskUseRow(string name, bool isWindows, string? path, double readShare, double writeShare, long readBytes, long writeBytes,
+    string caption, IReadOnlyList<DiskDriveRow> split) : ObservableObject
 {
+    public string Name { get; } = name;
+    public bool IsWindows { get; } = isWindows;
+    public string? Path { get; } = path;
+    public double ReadShare { get; } = readShare;
+    public double WriteShare { get; } = writeShare;
+    public long ReadBytes { get; } = readBytes;
+    public long WriteBytes { get; } = writeBytes;
+    public long TotalBytes => ReadBytes + WriteBytes;
+    public string Total => Core.Units.DiskBytes(TotalBytes);
+    public string Read => Core.Units.DiskBytes(ReadBytes);
+    public string Written => Core.Units.DiskBytes(WriteBytes);
+    /// <summary>Its drives under its name, busiest first ("C: and E:"); empty on an opened drive's list.</summary>
+    public string Caption { get; } = caption;
+    public bool HasCaption => Caption.Length > 0;
+    /// <summary>A line per drive, when it used more than one (none otherwise: there is nothing to split).</summary>
+    public IReadOnlyList<DiskDriveRow> Split { get; } = split;
+    /// <summary>It used more than one drive: it has the chevron, and a click opens or closes it.</summary>
+    public bool CanOpen => Split.Count > 1;
+    /// <summary>Opened to its split by drive (kept through a sort, a search, another period or the drives named again).</summary>
+    [ObservableProperty] private bool _isOpen;
+}
+
+/// <summary>
+/// One drive in an opened line of "What reads and writes": its letter in a chip (a drive icon for a drive with none), its
+/// name ("Local Disk"), the same bar in two tones sized against the app's own total, and its total, read and written.
+/// </summary>
+public sealed record DiskDriveRow(string Chip, bool HasLetter, string Name, double ReadShare, double WriteShare, long ReadBytes, long WriteBytes)
+{
+    public long TotalBytes => ReadBytes + WriteBytes;
+    public string Total => Core.Units.DiskBytes(TotalBytes);
+    public string Read => Core.Units.DiskBytes(ReadBytes);
+    public string Written => Core.Units.DiskBytes(WriteBytes);
 }
 
 /// <summary>

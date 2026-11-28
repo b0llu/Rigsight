@@ -21,6 +21,7 @@ internal sealed partial class AgentContext
     /// <summary>Sampler thread, once a second: the check on or off as its setting says, told what's in front, and each new minute written.</summary>
     private void SampleWake()
     {
+        WatchDriversNow();
         bool on = _settings.Latency.WakeCheck;
         if (on && _wakeCheck is null) _wakeCheck = WakeCheck.Start();
         else if (!on && _wakeCheck is not null)
@@ -86,6 +87,44 @@ internal sealed partial class AgentContext
             if (drivers is not null && i < drivers.Count) (live.DriverUs[i], live.Driver[i]) = (drivers[i].Us, drivers[i].Driver);
             if (wake is not null && i < wake.Count) (live.WakeUs[i], live.WakeMedianUs[i]) = (wake[i].Highest, wake[i].Median);
         }
+        // Drivers right now, every 2 seconds (the ticks between leave it null and the page keeps what it has).
+        // Not before a whole second has been kept since the page opened: the page shows its spinner until then.
+        if (drivers is not null && _driverTrace is { Ended: false } running && Environment.TickCount64 - _driversNowAt >= DriversNowEveryMs - 100
+            && running.Ledger.Now(to - DriverLedger.WindowSeconds + 1, to) is { Seconds: > 0 } window)
+        {
+            _driversNowAt = Environment.TickCount64;
+            var (now, seconds) = window;
+            live.DriversNowSeconds = seconds;
+            live.DriversNow = [.. now.OrderByDescending(d => d.BusyUs).Take(DriversNowMax).Select(d => new LatencyDriverNow
+            {
+                Driver = d.Driver, Calls = d.Calls, BusyUs = d.BusyUs, DpcUs = d.DpcUs, IsrUs = d.IsrUs, LongestUs = d.LongestUs,
+            })];
+            if (now.Count > DriversNowMax && !_driversNowCapLogged)
+            {
+                _driversNowCapLogged = true;
+                Log.Write("drivers", $"Drivers right now: {now.Count} drivers made calls in {seconds} seconds, more than the {DriversNowMax} sent; the least busy were left out");
+            }
+        }
         return live;
+    }
+
+    // Drivers right now (1.23.0, issue #18 item 11): the last 10 seconds of each driver, sent every 2 seconds while the page is open.
+    private const int DriversNowEveryMs = 2000;
+    private const int DriversNowMax = 64;
+    private long _driversNowAt;
+    private bool _driversNowCapLogged;
+
+    /// <summary>
+    /// Sampler thread, once a second: the ledger keeps each driver's last seconds only while the Latency page is open in a
+    /// connected app, so a closed page costs nothing. A trace started again gets its new ledger watched within a second.
+    /// </summary>
+    private void WatchDriversNow()
+    {
+        if (_driverTrace is not { Ended: false } trace) return;
+        bool open = _latencyPageOpen && _pipe.ClientCount > 0;
+        if (!trace.Ledger.Watch(open, TimeUtil.NowUnix())) return;
+        if (open) _driversNowAt = 0;
+        Log.Write("drivers", open ? "Drivers right now: keeping each driver's last 10 seconds while the Latency page is open"
+            : "Drivers right now: the Latency page closed, each driver's last seconds let go");
     }
 }

@@ -253,6 +253,7 @@ public sealed partial class GamesViewModel : ObservableObject
         IsLoading = false;
         Ready = true;
         OnPropertyChanged(nameof(IsEmpty));
+        _ = LoadNotGamesAsync(installed);
         if (_pendingOpen is { } key) { _pendingOpen = null; await OpenKeyAsync(key); }
         else if (Opened is { } open && _all.FirstOrDefault(g => g.Key == open.Entry.Key) is { } fresh) await OpenAsync(fresh, quiet: true);
     }
@@ -587,10 +588,13 @@ public sealed partial class GamesViewModel : ObservableObject
     [RelayCommand] private void ShowPlays() { FramesView = false; _ = ShowRunsAsync(); }
     /// <summary>The switch's second side: "Mon 26 Oct play".</summary>
     [ObservableProperty] private string _framesViewName = "";
-    /// <summary>When the play's stutters bunched up and what else was going on then (see StutterCauses), over the chart.</summary>
+    /// <summary>
+    /// Over "Where it stuttered" (1.23.0, see StutterStretches): how many stutters and how many in stretches, "41 stutters,
+    /// 32 of them in two stretches." Until 1.22.0 one line over the chart of when they bunched up (StutterCauses).
+    /// </summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasStutterWhy))] private string _stutterWhy = "";
     public bool HasStutterWhy => StutterWhy.Length > 0 && FramesView;
-    partial void OnFramesViewChanged(bool value) { OnPropertyChanged(nameof(HasStutterWhy)); OnPropertyChanged(nameof(CanSeeOnLatency)); }
+    partial void OnFramesViewChanged(bool value) => OnPropertyChanged(nameof(HasStutterWhy), nameof(CanSeeOnLatency), nameof(ShowStretches));
 
     /// <summary>Opens the Latency page on a play's hours, In games (set by the shell, issue #15).</summary>
     public Action<DateTime, DateTime>? OpenLatency { get; set; }
@@ -756,14 +760,14 @@ public sealed partial class GamesViewModel : ObservableObject
             FramesViewName = Lang.T($"{play.StartTime:ddd d MMM} play");
             RunsScope = $"{play.StartTime:ddd d MMM}, {Units.Duration(play.ActiveSec)}";
             Numbers(play.Stats);
-            SmoothFrom = play.Stats.Stutters is int n ? (n == 1 ? Lang.T("1 stutter in this play") : Lang.T($"{n} stutters in this play")) : "";
+            SmoothFrom = play.Stats.Stutters is int n ? (n == 1 ? Lang.T("1 stutter in this play") : Lang.T($"{n:N0} stutters in this play")) : "";
             long app = _app;
-            var (minutes, stutters, why) = await _reports.QueryAsync((db, settings) =>
+            string gameName = GameName;
+            var (minutes, stutters, report, cause, devices) = await _reports.QueryAsync((db, settings) =>
             {
                 var s = db.GetStutters(app, play.Start * 1000, (play.End + 60) * 1000);
                 // Driver activity (issue #15): the part of the PC whose driver was often using the CPU for much longer
-                // than usual right when the game stuttered, said in the strip and on the minutes it shows in; otherwise
-                // the stutters' other causes as before.
+                // than usual right when the game stuttered, said where it met the stutters and on the minutes it shows in.
                 var cause = Rigsight.Core.Drivers.StutterParts.Find(db, s, play.Start, play.End + 60);
                 long first = play.Start / 60 * 60;
                 var missed = db.GetDriverMissed(first, play.End + 60);
@@ -777,19 +781,36 @@ public sealed partial class GamesViewModel : ObservableObject
                 var sound = Rigsight.Core.Sound.SoundDropouts.OfApp(
                     Rigsight.Core.Sound.SoundDropouts.Cuts(db.GetSoundGlitches(play.Start * 1000, (play.End + 1) * 1000, heardOnly: true)), app,
                     db.GetFrontMinutes(app, play.Start, play.End + 60)).CountBy(c => c.AtMs / 60_000 * 60).ToDictionary();
-                var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x => new RunsMinute(TimeUtil.FromUnix(x.Ts), x.Fps, x.Low, x.Stutters, Note(x.Ts, x.Stutters),
-                    sound.GetValueOrDefault(x.Ts))).ToList();
+                // Where it stuttered (1.23.0): the stretches and what was seen around them, and each minute's readings.
+                StutterReport? report;
+                try { report = StutterStretches.Of(db, app, gameName, s, play.Start, play.End + 60, settings, cause); }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    // Logs are all we get: what was asked and what went wrong, and the chart still shows without the panel.
+                    Log.Error("games", ex);
+                    Log.Write("games", $"Where it stuttered: {s.Count} stutters from {TimeUtil.FromUnix(play.Start):yyyy-MM-dd HH:mm} could not be read");
+                    report = null;
+                }
+                var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x =>
+                {
+                    var note = Note(x.Ts, x.Stutters);
+                    int cuts = sound.GetValueOrDefault(x.Ts);
+                    var at = TimeUtil.FromUnix(x.Ts);
+                    StutterMinuteRead? read = report is not null && report.Minutes.TryGetValue(x.Ts, out var r) ? r : null;
+                    Func<RichTip>? rich = report is null ? null : () => MinuteTip(at, x.Fps, x.Low, x.Stutters, cuts, note, read, report, gameName);
+                    return new RunsMinute(at, x.Fps, x.Low, x.Stutters, note, cuts, rich);
+                }).ToList();
                 // No part found: which of the cases it was (issue #15 follow-up): not recorded, too soon, or none stood out.
-                string? why = cause?.Line ?? StutterCauses.Explain(db, app, s, play.Start, play.End + 60, settings);
-                if (cause is null && Rigsight.Core.Drivers.StutterParts.NoCause(db, s.Count, play.Start, play.End + 60) is { } none)
-                    why = why is null ? none : $"{why} {none}";
-                return (m, s, why);
+                string? devices = cause is null ? Rigsight.Core.Drivers.StutterParts.NoCause(db, s.Count, play.Start, play.End + 60) : null;
+                return (m, s, report, cause, devices);
             });
             if (ask != _runsAsk) return;
             PlayMinutes = minutes ?? [];
             PlayStutters = stutters ?? [];
             PlayStart = play.StartTime;
-            StutterWhy = why ?? "";
+            StutterWhy = report?.Headline ?? "";
+            DevicesNote = devices ?? "";
+            ShowStretchRows(report, cause, play.Start);
             return;
         }
 
@@ -947,7 +968,7 @@ public sealed partial class GamesViewModel : ObservableObject
     {
         if (all.StuttersAnHour is not double rate) return ("", "");
         string verdict = rate < 3 ? Lang.T("Smooth") : rate < 30 ? Lang.T("Mostly smooth") : Lang.T("It stutters");
-        var parts = new List<string> { rate < 0.5 ? Lang.T("no stutters") : Lang.T($"{rate:0} stutters an hour") };
+        var parts = new List<string> { rate < 0.5 ? Lang.T("no stutters") : Lang.T($"{rate:N0} stutters an hour") };
         if (all.FpsLow01 is double low) parts.Add(Lang.T($"0.1% low {low:0} fps"));
         return (verdict, string.Join(Environment.NewLine, parts));
     }

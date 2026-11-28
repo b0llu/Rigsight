@@ -43,6 +43,8 @@ public sealed record RichTip(string Title)
     public IReadOnlyList<RichFact> Facts { get; init; } = [];
     public IReadOnlyList<RichNote> Notes { get; init; } = [];
     public string? Mark { get; init; }
+    /// <summary>A quiet line after <see cref="Mark"/>, in the faint grey (1.23.0: an older part's day on the GPU and CPU history).</summary>
+    public string? Aside { get; init; }
     public string? Foot { get; init; }
 }
 
@@ -273,6 +275,15 @@ internal static class RichHover
             var m = Wrapped(v, mark, 12, ChartPaint.FpsMarkText, inner);
             dc?.DrawText(m, new Point(left, ty));
             ty += m.Height;
+        }
+
+        // A quiet line in the faint grey (what a stretch was on, where that isn't the part now).
+        if (t.Aside is { Length: > 0 } aside)
+        {
+            ty += t.Mark is { Length: > 0 } ? 4 : 9;
+            var a = Wrapped(v, aside, 12, ChartPaint.Faint, inner);
+            dc?.DrawText(a, new Point(left, ty));
+            ty += a.Height;
         }
 
         // What a click does, under a thin line across the box.

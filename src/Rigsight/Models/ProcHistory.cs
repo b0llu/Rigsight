@@ -147,7 +147,8 @@ public sealed partial class ProcHistory : ObservableObject, Views.IDayRange
         void Add(string label, string value, string? tip = null) => facts.Add(new(label, value, tip));
 
         if (row.Started > 0) Add(Lang.T("Running since"), Since(TimeUtil.FromUnix(row.Started), now));
-        if (past?.UsualMB is { } usual) Add(Lang.T("Usual memory"), Units.Megabytes(usual));
+        // The middle half of its days, as the Memory page says it; one figure where that's all that's known.
+        if (past?.UsualMB is { } usual) Add(Lang.T("Usual memory"), past.MemUsual?.Text ?? Units.Megabytes(usual));
         bool custom = Period == ProcPeriod.Custom && past is { Days.Count: > 0 };
         if (custom) { if (_range is { } r && RangeCpuFact(row, r) is { } rangeFact) facts.Add(rangeFact); }
         else if (past is { Days.Count: > 0 } && CpuFact(row, past, Period, now) is { } cpuFact) facts.Add(cpuFact);

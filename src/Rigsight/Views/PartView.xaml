@@ -1,0 +1,290 @@
+<UserControl x:Class="Rigsight.Views.PartView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             x:Name="Page">
+    <!-- The GPU page and the CPU page (1.23.0, approved mock-up section 10): live tiles, each core right now (CPU), then the
+         period, one chart that follows it, and what works the part hardest. One view, two pages: the part decides. -->
+    <UserControl.Resources>
+        <!-- The part's own colour: the CPU's blue, the GPU's cyan. -->
+        <Style x:Key="PartSwatch" TargetType="Border">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource CpuBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsGpu}" Value="True"><Setter Property="Background" Value="{DynamicResource GpuBrush}" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="LegendText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Detail}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,18,0" />
+        </Style>
+        <!-- An app's icon, or its first letter in a square where RigSight has no file for it. -->
+        <DataTemplate x:Key="AppSquare">
+            <Grid Width="30" Height="30">
+                <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Visibility="{Binding HasIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                    <TextBlock Text="{Binding Letter}" FontWeight="Bold" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="24" Height="24" HorizontalAlignment="Center"
+                       Visibility="{Binding HasIcon, Converter={StaticResource Vis}}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
+            <DockPanel Margin="0,0,0,14">
+                <Button Style="{StaticResource PageExportButton}" />
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DockPanel>
+
+            <!-- ── Live tiles: what the part does right now, each with its last minute. Above the period, as on Network and Latency. ── -->
+            <ItemsControl ItemsSource="{Binding Tiles}" Focusable="False" Margin="-7,4,-7,0" Visibility="{Binding HasTiles, Converter={StaticResource Vis}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Rows="1" Columns="{Binding TileColumns}" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Tile}"
+                                Padding="16,14,16,10" Margin="7,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="22" Height="22" CornerRadius="{x:Static ctl:Corner.Small}" Background="{Binding Back, Converter={StaticResource ResourceBrush}}" Margin="0,0,8,0">
+                                        <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{Binding Ink, Converter={StaticResource ResourceBrush}}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Caption}" Style="{StaticResource Caption}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <TextBlock Margin="0,8,0,0" TextTrimming="CharacterEllipsis">
+                                    <Run Text="{Binding Value, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" " FontSize="{x:Static ctl:TextSize.Body}" /><Run Text="{Binding Unit, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" />
+                                </TextBlock>
+                                <!-- The grey line keeps its height when empty, so every tile's line sits at the same place. -->
+                                <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" MinHeight="16" TextTrimming="CharacterEllipsis"
+                                           ctl:TrimmedText.ToolTip="True" />
+                                <ctl:Sparkline Height="34" Margin="0,6,0,0" Source="{Binding Source}" Version="{Binding Version}" Kind="{Binding Kind}"
+                                               Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Stroke="{Binding Ink, Converter={StaticResource ResourceBrush}}"
+                                               AutomationProperties.Name="{Binding Caption}" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- ── Each core right now (the CPU page): live every second while the page is open; nothing of it is kept. ── -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,16,0,0" Visibility="{Binding HasCores, Converter={StaticResource Vis}}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,8">
+                        <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Updated every second'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Each core right now'}" Style="{StaticResource H2}" />
+                    </DockPanel>
+                    <TextBlock Text="{Binding CoreSentence}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                    <ItemsControl ItemsSource="{Binding CoreGroups}" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Margin="0,14,0,8" Visibility="{Binding HasHeading, Converter={StaticResource Vis}}">
+                                        <Run Text="{Binding Heading, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" /><Run Text="  " /><Run Text="{Binding Count, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" />
+                                    </TextBlock>
+                                    <Border Height="12" Visibility="{Binding HasHeading, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                    <ItemsControl ItemsSource="{Binding Cores}" Focusable="False" Margin="-5,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="{Binding Columns}" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="5">
+                                                    <Border Background="{Binding Shade}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="12,10" BorderThickness="1" BorderBrush="Transparent">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Caption}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" />
+                                                            <TextBlock Margin="0,4,0,0">
+                                                                <Run Text="{Binding Load, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="%" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" />
+                                                            </TextBlock>
+                                                            <ItemsControl ItemsSource="{Binding Threads}" Focusable="False" Margin="0,4,0,0">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <ProgressBar Style="{StaticResource Bar}" Height="5" Margin="0,4,0,0" Maximum="100" Value="{Binding Value, Mode=OneWay}" Foreground="{DynamicResource CpuBrush}" />
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                            <TextBlock Text="{Binding Foot}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <!-- The busiest core, outlined in the CPU's blue. -->
+                                                    <Border CornerRadius="{x:Static ctl:Corner.Control}" BorderThickness="1" BorderBrush="{DynamicResource CpuBrush}" Opacity="0.65" IsHitTestVisible="False"
+                                                            Visibility="{Binding IsTop, Converter={StaticResource Vis}}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <!-- ── The period ── -->
+            <StackPanel Orientation="Horizontal" Margin="0,28,0,18">
+                <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
+                                  CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,80,0,0"
+                         Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
+
+            <!-- Nothing recorded in the period: one plain message. -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
+                <StackPanel HorizontalAlignment="Center" Margin="0,30">
+                    <TextBlock Text="&#xE916;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S28}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,12,0,0" />
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <StackPanel Visibility="{Binding ShowHistory, Converter={StaticResource Vis}}">
+                <!-- ── One chart that follows the period: a bar an hour on Day, a pair a day, a pair a week on Year ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}">
+                    <StackPanel>
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="{Binding Title}" Content="{ctl:T 'Temperature'}" Visibility="{Binding HasTemperature, Converter={StaticResource Vis}}"
+                                                 IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Temperature}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="{Binding Title}" Content="{ctl:T 'Load'}" Visibility="{Binding HasLoad, Converter={StaticResource Vis}}"
+                                                 IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Load}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="{Binding Title}" Content="{ctl:T 'Power'}" Visibility="{Binding HasPower, Converter={StaticResource Vis}}"
+                                                 IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Power}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="{Binding Title}" Content="{ctl:T 'Clock'}" Visibility="{Binding HasClock, Converter={StaticResource Vis}}"
+                                                 IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Clock}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <ctl:PartChart Height="300" Margin="0,14,0,0" Panel.ZIndex="1" Slots="{Binding Slots}" Marks="{Binding Marks}" Metric="{Binding Metric}" AutomationProperties.Name="{Binding ChartTitle}">
+                            <ctl:PartChart.Style>
+                                <Style TargetType="ctl:PartChart">
+                                    <Setter Property="Brush" Value="{DynamicResource CpuBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsGpu}" Value="True"><Setter Property="Brush" Value="{DynamicResource GpuBrush}" /></DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ctl:PartChart.Style>
+                        </ctl:PartChart>
+                        <!-- The legend: the two kinds of bar, the highest's whisker, the not-recorded hatch, and what a bar is. -->
+                        <DockPanel Margin="0,10,0,0">
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Each bar is the average'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <WrapPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource PartSwatch}" />
+                                    <TextBlock Text="{ctl:T 'With a game in front'}" Style="{StaticResource LegendText}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource PartSwatch}" Opacity="0.38" />
+                                    <TextBlock Text="{Binding RestLegend}" Style="{StaticResource LegendText}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Canvas Width="14" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
+                                        <Line X1="2" X2="12" Y1="2" Y2="2" Stroke="{DynamicResource MutedBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                        <Line X1="7" X2="7" Y1="2" Y2="12" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1" Opacity="0.7" />
+                                    </Canvas>
+                                    <TextBlock Text="{ctl:T 'Highest'}" Style="{StaticResource LegendText}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Rectangle Width="10" Height="10" RadiusX="2" RadiusY="2" Margin="0,0,6,0" VerticalAlignment="Center">
+                                        <Rectangle.Fill>
+                                            <DrawingBrush TileMode="Tile" Viewport="0,0,6,6" ViewportUnits="Absolute">
+                                                <DrawingBrush.Transform>
+                                                    <RotateTransform Angle="45" />
+                                                </DrawingBrush.Transform>
+                                                <DrawingBrush.Drawing>
+                                                    <DrawingGroup>
+                                                        <GeometryDrawing Brush="{DynamicResource Surface2Brush}" Geometry="M0,0 H6 V6 H0 Z" />
+                                                        <GeometryDrawing Brush="{DynamicResource FaintBrush}" Geometry="M0,0 H3 V6 H0 Z" />
+                                                    </DrawingGroup>
+                                                </DrawingBrush.Drawing>
+                                            </DrawingBrush>
+                                        </Rectangle.Fill>
+                                    </Rectangle>
+                                    <TextBlock Text="{ctl:T 'Not recorded'}" Style="{StaticResource LegendText}" />
+                                </StackPanel>
+                                <!-- The marks, only when the period has one: an older part's faint bars, a driver update's diamond. -->
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding HasOldPart, Converter={StaticResource Vis}}">
+                                    <Border Style="{StaticResource PartSwatch}" Opacity="0.35" />
+                                    <TextBlock Text="{Binding OldLegend}" Style="{StaticResource LegendText}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding HasDriverMarks, Converter={StaticResource Vis}}">
+                                    <Path Data="M5,0 L10,5 L5,10 L0,5 Z" Fill="{DynamicResource FpsMarkTextBrush}" Width="10" Height="10" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{ctl:T 'Driver update'}" Style="{StaticResource LegendText}" />
+                                </StackPanel>
+                            </WrapPanel>
+                        </DockPanel>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- ── What works it hardest: the apps in front by the part's average load, and (GPU) its driver ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,8">
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Average while in front'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'What works it hardest'}" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <TextBlock Text="{ctl:T 'No app was in front.'}" Style="{StaticResource Muted}" Visibility="{Binding HasApps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <!-- A long list scrolls in a box of its own height. -->
+                        <ScrollViewer MaxHeight="330" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                            <!-- Room at the right for the scroll bar, so it never sits over the figures. -->
+                            <ItemsControl ItemsSource="{Binding Apps}" Focusable="False" Margin="0,0,14,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="44" />
+                                                <ColumnDefinition Width="1.4*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="90" />
+                                            </Grid.ColumnDefinitions>
+                                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AppSquare}" HorizontalAlignment="Left" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Figures}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Power}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Time}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        <!-- The graphics driver, opening its versions inside Timeline (1.22.0's one-driver view). -->
+                        <StackPanel Visibility="{Binding HasDriver, Converter={StaticResource Vis}}">
+                            <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,10,0,12" />
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource ActionButton}" Command="{Binding OpenDriverVersionsCommand}" VerticalAlignment="Center"
+                                        AutomationProperties.Name="{ctl:T 'Every version'}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{ctl:T 'Every version'}" VerticalAlignment="Center" />
+                                        <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="6,1,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Border DockPanel.Dock="Left" Style="{StaticResource IconBox}" Background="{DynamicResource GpuSoftBrush}" Margin="0,0,14,0">
+                                    <TextBlock Text="&#xE950;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource GpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="{Binding DriverText}" Style="{StaticResource Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

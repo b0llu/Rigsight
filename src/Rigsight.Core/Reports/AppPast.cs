@@ -4,8 +4,8 @@ namespace Rigsight.Core.Reports;
 
 /// <summary>
 /// What is on record about one running app, for the box under its row on the Processes page. Anything not recorded
-/// stays null (memory is kept only for apps that had a window, held 150 MB or used 2% of the processor), and the page
-/// leaves that fact out.
+/// stays null (today's hour-by-hour memory is kept only for apps that had a window, held 150 MB or used 2% of the
+/// processor; its usual counts every second it ran), and the page leaves that fact out.
 /// </summary>
 public sealed class AppPast
 {
@@ -18,8 +18,15 @@ public sealed class AppPast
     /// <summary>Its memory in each hour of today (MB), from midnight to the hour now; null where it wasn't recorded.</summary>
     public double?[] Hours { get; init; } = [];
 
-    /// <summary>Its average memory over the days before today (MB); null with too few of them.</summary>
-    public double? UsualMB { get; init; }
+    /// <summary>
+    /// Its usual memory over the days before today as a spread, the middle half of its days over every second it ran (see
+    /// <see cref="MemoryUsual"/>); null with too few of them.
+    /// </summary>
+    public MemoryUsual? MemUsual { get; init; }
+
+    /// <summary>Its usual memory as one figure (MB), the middle of <see cref="MemUsual"/>; null with too few days.</summary>
+    public double? UsualMB { get => _usualMB ?? MemUsual?.Middle; init => _usualMB = value; }
+    private readonly double? _usualMB;
 
     /// <summary>Seconds in front today (in use, or with the user away), and open behind something else or minimized.</summary>
     public double? FrontSec { get; init; }
@@ -84,16 +91,8 @@ public sealed class AppPast
             if (h.MemN > 0 && at < hours.Length) hours[at] = h.MemSum / h.MemN;
         }
 
-        double sum = 0;
-        long n = 0;
-        var days = new HashSet<DateTime>();
-        foreach (var h in db.GetAppHoursOf(app.Id, TimeUtil.ToUnix(today.AddDays(-UsualDays)), from))
-        {
-            if (h.MemN <= 0) continue;
-            sum += h.MemSum;
-            n += h.MemN;
-            days.Add(TimeUtil.FromUnix(h.Ts).Date);
-        }
+        // The same usual as the Memory page's (MemoryPast.SpreadOf), for this one app.
+        var usual = MemoryUsual.ForApp(db, app.Id, now);
 
         long net = 0;
         bool anyNet = false;
@@ -107,7 +106,7 @@ public sealed class AppPast
         return new AppPast
         {
             Hours = hours,
-            UsualMB = days.Count >= MinUsualDays && n > 0 ? sum / n : null,
+            MemUsual = usual,
             FrontSec = any ? front : null,
             BackSec = any ? back : null,
             NetBytes = anyNet ? net : null,

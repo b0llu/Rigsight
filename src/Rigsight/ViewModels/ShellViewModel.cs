@@ -87,6 +87,9 @@ public sealed partial class ShellViewModel : ObservableObject
         // A Timeline driver line opens on the Latency page (issue #15): the mark's story, then the driver; Back returns to Timeline.
         Timeline.OpenDelayHere = mark => { _ = Latency.ShowMarkAsync(mark, fromTimeline: true); CurrentPage = "latency"; };
         Startup = new StartupViewModel(Reports) { OpenTimelineAt = OpenTimelineAt, RestartWithAdmin = StartAgentCommand };
+        // One part each (1.23.0); the GPU page's driver line opens that driver inside Timeline.
+        Gpu = new PartViewModel(Core.Parts.Part.Gpu, Reports, Live, Settings) { OpenDriver = OpenDriverInTimeline };
+        Cpu = new PartViewModel(Core.Parts.Part.Cpu, Reports, Live, Settings);
         Network = new NetworkViewModel(Reports, Live, Settings);
         // An app row on the Network page opens that app on the Apps page, for the same period (its internet use is there).
         Network.OpenAppRequested += (exe, unit, anchor) =>
@@ -391,6 +394,16 @@ public sealed partial class ShellViewModel : ObservableObject
     public PowerViewModel Power { get; }
     public LatencyViewModel Latency { get; }
     public StartupViewModel Startup { get; }
+    public PartViewModel Gpu { get; }
+    public PartViewModel Cpu { get; }
+
+    /// <summary>Opens one driver inside Timeline (the GPU page's "Every version"): the one-driver view of 1.22.0.</summary>
+    private async void OpenDriverInTimeline(string key)
+    {
+        await Timeline.LoadAsync(onlyIfChanged: true);
+        if (!Timeline.OpenDriver(key)) Core.Log.Write("gpu", $"Expected the graphics driver {key} in the driver history, found none");
+        CurrentPage = "timeline";
+    }
 
     /// <summary>Opens the Timeline at a day (the Start-up page's change lines and "N more on Timeline").</summary>
     private async void OpenTimelineAt(DateTime day)
@@ -410,15 +423,26 @@ public sealed partial class ShellViewModel : ObservableObject
         if (open == _latencyOpen) return;
         _latencyOpen = open;
         _client.SendCommand("latency-page", open ? "open" : "closed");
+        // Drivers right now starts again from its spinner next time, never from what it showed before (1.23.0).
+        if (!open) Latency.LiveClosed();
     }
 
     private bool _latencyOpen, _windowShown = true;
+
+    /// <summary>The GPU and CPU pages follow the live readings only while on screen (minimised counts as closed).</summary>
+    private void PartsShown(bool windowShown)
+    {
+        // Set while the shell is being made, before the pages are.
+        Gpu?.SetLive(windowShown && CurrentPage == "gpu");
+        Cpu?.SetLive(windowShown && CurrentPage == "cpu");
+    }
 
     /// <summary>The window was minimised or brought back.</summary>
     public void WindowShown(bool shown)
     {
         _windowShown = shown;
         LatencyShown(shown);
+        PartsShown(shown);
     }
 
     /// <summary>Opens a driver on the Latency page (the taskbar's Driver delay, a game play's stutter line).</summary>
@@ -664,6 +688,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Sidebar.Select(value);
         AllPages.IsShown = value == SidebarViewModel.AllPagesKey;
         LatencyShown(_windowShown);
+        PartsShown(_windowShown);
         _ = RefreshCurrentPageAsync();
     }
 
@@ -706,6 +731,8 @@ public sealed partial class ShellViewModel : ObservableObject
             case "power": await Power.RefreshAsync(); break;
             case "latency": Latency.NoAdmin = IsConnected && !AgentIsAdmin; await Latency.RefreshAsync(); break;
             case "startup": Startup.NoAdmin = IsConnected && !AgentIsAdmin; await Startup.RefreshAsync(); break;
+            case "gpu": await Gpu.RefreshAsync(); break;
+            case "cpu": await Cpu.RefreshAsync(); break;
             case SidebarViewModel.AllPagesKey: AllPages.RefreshFigures(); break;
             case "network": await Network.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
@@ -777,6 +804,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "latency": if (Latency.IncludesToday && Latency.IsListShown && _tickCount % 5 == 0) await Latency.RefreshAsync(); break;
                 // Starts come a few a day, and Windows' record of one minutes after it: every 5th minute is plenty.
                 case "startup": if (Startup.IncludesToday && _tickCount % 5 == 0) await Startup.RefreshAsync(); break;
+                // The live part comes each second; the period's bars move slowly: read again every 5th minute.
+                case "gpu": if (Gpu.IncludesToday && _tickCount % 5 == 0) await Gpu.RefreshAsync(); break;
+                case "cpu": if (Cpu.IncludesToday && _tickCount % 5 == 0) await Cpu.RefreshAsync(); break;
                 case SidebarViewModel.AllPagesKey: AllPages.RefreshFigures(); break;
                 case "network": await Network.RefreshAsync(); break;
                 case "temperatures": if (ChartDueNow) await LoadTemperatureHistoryAsync(); break;
@@ -821,6 +851,8 @@ public sealed partial class ShellViewModel : ObservableObject
         Power.NewDay(was);
         Latency.NewDay(was);
         Startup.NewDay(was);
+        Gpu.NewDay(was);
+        Cpu.NewDay(was);
         Network.NewDay(was);
         Live.NewDay(was);
         Controls.PeriodPicker.OnDayChanged();

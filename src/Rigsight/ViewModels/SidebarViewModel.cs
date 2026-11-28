@@ -253,7 +253,7 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// Pages added after people could save their own sidebar order: one goes right after the page before it here (Games
     /// under Apps) rather than at the end of its group.
     /// </summary>
-    private static readonly HashSet<string> AddedLater = ["games", "power", "latency", "startup"];
+    private static readonly HashSet<string> AddedLater = ["games", "power", "latency", "startup", "gpu", "cpu"];
 
     /// <summary>
     /// "The basics" (2026-10-25): the pages someone who mostly wants to know their PC is fine looks at. Every other page is
@@ -276,6 +276,9 @@ public sealed partial class SidebarViewModel : ObservableObject
         // Driver delays and the app wake-up check (issue #15): a stopwatch.
         ("latency", Lang.Key("Latency"), "", MainSection),
         ("temperatures", Lang.Key("Temperatures"), "", HardwareSection),
+        // One part each (1.23.0): live tiles, each core (CPU), each day with a game in front kept apart. A card, a chip.
+        ("gpu", Lang.Key("GPU"), "", HardwareSection),
+        ("cpu", Lang.Key("CPU"), "", HardwareSection),
         ("power", Lang.Key("Power"), "", HardwareSection),
         ("fans", Lang.Key("Fans"), "fan", HardwareSection),
         ("memory", Lang.Key("Memory"), "", HardwareSection),
@@ -307,6 +310,8 @@ public sealed partial class SidebarViewModel : ObservableObject
         ["power"] = new(1, 18, 0),
         ["latency"] = new(1, 19, 0),
         ["startup"] = new(1, 22, 0),
+        ["gpu"] = new(1, 23, 0),
+        ["cpu"] = new(1, 23, 0),
     };
 
     /// <summary>
@@ -325,6 +330,8 @@ public sealed partial class SidebarViewModel : ObservableObject
         "latency" => Lang.T("How long drivers held the CPU"),
         "startup" => Lang.T("How long each start took"),
         "temperatures" => Lang.T("Heat of each part"),
+        "gpu" => Lang.T("The GPU now and over time"),
+        "cpu" => Lang.T("The CPU and each of its cores"),
         "power" => Lang.T("What the parts draw"),
         "fans" => Lang.T("How fast each fan spins"),
         "memory" => Lang.T("What fills your memory"),
@@ -342,6 +349,8 @@ public sealed partial class SidebarViewModel : ObservableObject
     {
         "latency" => Lang.T("How long drivers kept a CPU core busy, and how long apps waited to run."),
         "startup" => Lang.T("How long this PC takes to start, and what was different when a start took longer."),
+        "gpu" => Lang.T("How hard the GPU works and how hot it runs, with games kept apart from everything else."),
+        "cpu" => Lang.T("Each core right now, and how hard the CPU works with games kept apart from everything else."),
         _ => DescriptionOf(key) + ".",
     };
 

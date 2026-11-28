@@ -11,7 +11,7 @@ namespace Rigsight.ViewModels;
 
 // The drives as a table of physical drives, their letters under each, and a drive opened in full (wear and drive
 // details, approved mock-up 2026-11-14): Needs a look as cards on top, then Inside the PC, then USB and network.
-public sealed partial class StorageViewModel
+public sealed partial class StorageViewModel : Views.IDayRange
 {
     /// <summary>Drives that need a look (failing first), as cards above the table.</summary>
     public ObservableCollection<DriveGroup> Looks { get; } = [];
@@ -66,6 +66,7 @@ public sealed partial class StorageViewModel
             Opened = again;
             ShowReadings();
         }
+        NameDiskDrivesAgain();
         _ = LoadGroupFiguresAsync(groups);
         if (_openKey is { } key) OpenKey(key);
     }
@@ -242,39 +243,169 @@ public sealed partial class StorageViewModel
 
     // ── What reads and writes ───────────────────────────────────────────
 
-    /// <summary>Day (the last 24 hours), Week or Month.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(UseDay), nameof(UseWeek), nameof(UseMonth))] private string _usePeriod = "Week";
+    /// <summary>Day (the last 24 hours), Week, Month or Custom (days picked in the shared calendar, 1.23.0).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(UseDay), nameof(UseWeek), nameof(UseMonth), nameof(UseCustom))] private string _usePeriod = "Week";
     public bool UseDay => UsePeriod == "Day";
     public bool UseWeek => UsePeriod == "Week";
     public bool UseMonth => UsePeriod == "Month";
+    public bool UseCustom => UsePeriod == "Custom";
     /// <summary>The Needs a look cards a row: as many as there are, up to three, so one card never leaves a half row empty.</summary>
     public int LooksColumns => Math.Clamp(Looks.Count, 1, 3);
     partial void OnUsePeriodChanged(string value) => _ = LoadDiskUseAsync();
     [RelayCommand] private void PickUsePeriod(string? period) { if (period is "Day" or "Week" or "Month") UsePeriod = period; }
 
-    public ObservableCollection<DiskUseRow> DiskUse { get; } = [];
-    [ObservableProperty] private bool _diskUseRead;
-    public bool DiskUseEmpty => DiskUseRead && DiskUse.Count == 0;
+    // Custom, as on every other look-back (Processes' opened app, the pages' pickers): the same day calendar, whose first
+    // day is the first one with reads and writes on record.
+
+    /// <summary>The first day with any app's reads and writes on record (read with the list); null before it's known.</summary>
+    public DateTime? FirstDay { get; private set; }
+    /// <summary>The days picked, both in it (the last 7 days until some are).</summary>
+    public DateTime CustomFrom { get; private set; } = DateTime.Today.AddDays(-6);
+    public DateTime CustomTo { get; private set; } = DateTime.Today;
+
+    /// <summary>Days picked in the calendar: the list is read for them.</summary>
+    public void PickCustom(DateTime a, DateTime b)
+    {
+        (CustomFrom, CustomTo) = a <= b ? (a.Date, b.Date) : (b.Date, a.Date);
+        if (UseCustom) _ = LoadDiskUseAsync();
+        else UsePeriod = "Custom";
+    }
+
+    /// <summary>Every app that read or wrote in the period (1.23.0: all of them, in a box that scrolls), in the order picked, as searched.</summary>
+    /// <summary>
+    /// The apps in the list, sorted and searched. Replaced whole (1.23.0): it holds every app now, a few hundred, and adding
+    /// them one by one to a collection the list watches cost 100-170 ms on the window's thread, which landed on the next
+    /// page switch when the history came in late (seen at the 1.23.0 gate, Storage to Home 167 ms).
+    /// </summary>
+    [ObservableProperty] private IReadOnlyList<DiskUseRow> _diskUse = [];
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(DiskUseLoading))] private bool _diskUseRead;
+    public bool DiskUseEmpty => DiskUseRead && _diskRows.Count == 0;
+    /// <summary>Something is searched for and no app in the period matches.</summary>
+    public bool DiskUseNoneMatch => DiskUseRead && _diskRows.Count > 0 && DiskUse.Count == 0;
+    /// <summary>The list hasn't been read yet: the card shows the spinner.</summary>
+    public bool DiskUseLoading => !DiskUseRead;
+    /// <summary>How many apps read or wrote in the period, at the list's top right ("328 apps", whatever is searched); none while it's empty.</summary>
+    public string DiskUseCount => _diskRows.Count switch { 0 => "", 1 => Lang.T("1 app"), int n => Lang.T($"{n} apps") };
     /// <summary>Under the opened drive's list: its writes this week against its usual week, when known.</summary>
     [ObservableProperty] private string _diskUseNote = "";
+    /// <summary>What's typed in the card's search box: the list keeps the apps whose name has every word.</summary>
+    [ObservableProperty] private string _diskUseSearch = "";
+    private string[] _diskWords = [];
 
-    private async Task LoadDiskUseAsync()
+    partial void OnDiskUseSearchChanged(string value)
+    {
+        _diskWords = TextMatch.Words(value);
+        FillDiskUse();
+    }
+
+    /// <summary>The list's column headings, each a button that sorts by it: TOTAL (first), READ, WRITTEN.</summary>
+    public SortHeading DiskTotalHeading { get; } = new("Total", Lang.T("TOTAL")) { IsActive = true, Arrow = "↓" };
+    public SortHeading DiskReadHeading { get; } = new("Read", Lang.T("READ"));
+    public SortHeading DiskWrittenHeading { get; } = new("Written", Lang.T("WRITTEN"));
+    private string _diskSort = "Total";
+    private List<DiskUseRow> _diskRows = [];
+    private int _diskReads;
+
+    /// <summary>A heading clicked: the list sorts by it, most first (the page keeps the pick while it's open).</summary>
+    [RelayCommand]
+    private void SortDiskUse(string? key)
+    {
+        if (key is not ("Total" or "Read" or "Written") || key == _diskSort) return;
+        _diskSort = key;
+        foreach (var h in new[] { DiskTotalHeading, DiskReadHeading, DiskWrittenHeading })
+        {
+            h.IsActive = h.Key == key;
+            h.Arrow = h.IsActive ? "↓" : "↕";
+        }
+        FillDiskUse();
+    }
+
+    /// <summary>A line on more than one drive clicked: it opens to its split by drive, or closes.</summary>
+    [RelayCommand]
+    private static void ToggleDiskUse(DiskUseRow? row)
+    {
+        if (row is { CanOpen: true }) row.IsOpen = !row.IsOpen;
+    }
+
+    /// <param name="again">
+    /// False when the page is only shown again: the same period and drive read in the last 2 minutes keep their rows. The
+    /// list holds every app (a few hundred) and reading it again on each visit rebuilt the rows in view, about 140 ms on the
+    /// window's thread at each switch to Storage (the 1.23.0 gate, 6 to 10 switches over 100 ms). Reads and writes are kept
+    /// by the hour, so two minutes lose nothing.
+    /// </param>
+    private async Task LoadDiskUseAsync(bool again = true)
     {
         int days = UsePeriod switch { "Day" => 1, "Month" => 30, _ => 7 };
-        string? disk = Opened?.Health?.Key;
-        var lines = await reports.DiskUseAsync(days, disk, Opened is null ? 5 : 6) ?? [];
-        DiskUse.Clear();
-        double top = lines.Count == 0 ? 1 : Math.Max(1, lines.Max(l => l.Total));
-        foreach (var l in lines)
-        {
-            string letter = Opened is null && LetterOf(l.MainDisk) is { } x ? $" · {x}" : "";
-            string figure = Units.DiskBytes(l.Total) + letter;
-            string tip = Lang.T($"Read {Units.DiskBytes(l.Read)}, written {Units.DiskBytes(l.Write)}");
-            DiskUse.Add(new DiskUseRow(l.Name, l.IsWindows, l.Read / top, l.Write / top, figure, tip));
-        }
+        var span = UseCustom ? Core.Storage.AppDrives.Span(CustomFrom, CustomTo) : Core.Storage.AppDrives.Span(days, DateTime.Now);
+        var opened = Opened;
+        string? disk = opened?.Health?.Key;
+        string key = $"{(UseCustom ? $"{CustomFrom:yyyy-MM-dd}~{CustomTo:yyyy-MM-dd}" : days.ToString())}|{disk}";
+        if (!again && DiskUseRead && key == _diskKey && DateTime.UtcNow - _diskReadAt < TimeSpan.FromMinutes(2)) return;
+        int read = ++_diskReads;
+        var result = await reports.DiskUseAsync(span, disk);
+        if (read != _diskReads) return; // a newer period or drive was asked for meanwhile
+        _diskPeriod = UseCustom ? $"{CustomFrom:yyyy-MM-dd} to {CustomTo:yyyy-MM-dd}" : $"{days} days";
+        if (result is null) Log.Write("Storage", $"what reads and writes ({_diskPeriod}, drive {disk ?? "all"}) couldn't be read; the list shows nothing");
+        if (result?.FirstDay is { } first) FirstDay = first;
+        _diskLines = result?.Lines ?? [];
+        _diskKey = key;
+        _diskReadAt = DateTime.UtcNow;
+        _diskPageWide = opened is null;
+        BuildDiskRows();
         DiskUseRead = true;
-        OnPropertyChanged(nameof(DiskUseEmpty));
         DiskUseNote = Opened?.WrittenWeek is double gb ? Lang.T($"Written in the last 7 days {Units.DiskBytes(gb * 1e9)}.") : "";
+    }
+
+    // The lines as read, for the page-wide list or an opened drive's, and the drives on record none of the page's drives
+    // answered to when they were named (gone, or the drives not sent by the agent yet).
+    private List<DiskUseLine> _diskLines = [];
+    private string _diskKey = "";
+    private DateTime _diskReadAt;
+    private bool _diskPageWide = true;
+    private string _diskPeriod = "";
+    private HashSet<string> _diskUnknown = [];
+
+    /// <summary>
+    /// The lines from what was read: on the page-wide list each names its drives and, on more than one, opens to them (a
+    /// line open stays open); an opened drive's list is that drive's alone, with neither.
+    /// </summary>
+    private void BuildDiskRows()
+    {
+        // The bars are sized against the line with the most in total, whatever the list is sorted by, so a sort keeps each bar.
+        double top = _diskLines.Count == 0 ? 1 : Math.Max(1, _diskLines.Max(l => l.Total));
+        var open = _diskRows.Where(r => r.IsOpen).Select(r => r.Name).ToHashSet();
+        var names = new Dictionary<string, DriveName>();
+        DriveName Of(string key) => names.TryGetValue(key, out var n) ? n : names[key] = DriveLabel(key);
+        _diskRows = [.. _diskLines.Select(l =>
+        {
+            bool page = _diskPageWide && l.Drives.Count > 0;
+            string caption = page ? Core.Storage.AppDrives.Caption(l.Drives.Select(d => Of(d.Disk).Said)) : "";
+            double own = Math.Max(1, l.Total);
+            List<DiskDriveRow> split = page && l.Drives.Count > 1
+                ? [.. l.Drives.Select(d => { var n = Of(d.Disk); return new DiskDriveRow(n.Chip, n.HasLetter, n.Name, d.Read / own, d.Write / own, d.Read, d.Write); })]
+                : [];
+            return new DiskUseRow(l.Name, l.IsWindows, l.Path, l.Read / top, l.Write / top, l.Read, l.Write, caption, split) { IsOpen = split.Count > 1 && open.Contains(l.Name) };
+        })];
+        _diskUnknown = [.. names.Where(n => !n.Value.Known).Select(n => n.Key)];
+        if (_diskUnknown.Count > 0)
+            Log.Write("Storage", $"what reads and writes ({_diskPeriod}): {_diskUnknown.Count} of {names.Count} drives on record aren't among the drives now ({Live.DriveHealth.Count} sent by the agent); said by model or as another drive");
+        FillDiskUse();
+    }
+
+    /// <summary>The drives were sent again: a drive the list couldn't name a moment ago is named now (no read of the history).</summary>
+    private void NameDiskDrivesAgain()
+    {
+        if (_diskPageWide && _diskUnknown.Count > 0 && _diskUnknown.Any(k => DriveOf(k) is not null)) BuildDiskRows();
+    }
+
+    private void FillDiskUse()
+    {
+        Func<DiskUseRow, long> key = _diskSort switch { "Read" => r => r.ReadBytes, "Written" => r => r.WriteBytes, _ => r => r.TotalBytes };
+        DiskUse = [.. _diskRows.OrderByDescending(key).ThenByDescending(r => r.TotalBytes)
+            .Where(r => _diskWords.Length == 0 || TextMatch.Has(_diskWords, r.Name))];
+        OnPropertyChanged(nameof(DiskUseCount));
+        OnPropertyChanged(nameof(DiskUseEmpty));
+        OnPropertyChanged(nameof(DiskUseNoneMatch));
     }
 
     // ── Space you could free, one line a letter (the overview) ──────────
@@ -319,7 +450,27 @@ public sealed partial class StorageViewModel
         if (line.NeedsScan) await Scan(line.Root);
     }
 
-    /// <summary>The first letter of a drive by its key ("E"), for a line of the page-wide list.</summary>
-    private string? LetterOf(string? key) =>
-        key is null ? null : Looks.Concat(Inside).Concat(Others).FirstOrDefault(g => g.Health?.Key == key)?.Letters.OrderBy(l => l.Root).FirstOrDefault()?.Root.TrimEnd('\\', ':');
+    /// <summary>
+    /// A drive as the page-wide list of what reads and writes says it. <see cref="Chip"/> is its letter ("E:") or, with
+    /// none, its short name; <see cref="Said"/> the same in the drives under an app's name (null for a drive the page
+    /// doesn't know, "another drive" there); <see cref="Name"/> beside the chip in a line's split ("Local Disk").
+    /// <see cref="Known"/>: one of the page's drives now.
+    /// </summary>
+    private sealed record DriveName(string Chip, bool HasLetter, string Name, string? Said, bool Known);
+
+    private DriveGroup? DriveOf(string key) => Looks.Concat(Inside).Concat(Others).FirstOrDefault(g => g.Health?.Key == key);
+
+    /// <summary>
+    /// A drive by its key: its first letter in the chip and that letter's name ("Local Disk", "Local disk" with none); a
+    /// drive with no letter by its short name (a drive icon in the chip); a drive the page doesn't know now by the model in
+    /// its key, or as a drive that isn't connected now.
+    /// </summary>
+    private DriveName DriveLabel(string key)
+    {
+        var group = DriveOf(key);
+        if (group?.Letters.OrderBy(l => l.Root, StringComparer.OrdinalIgnoreCase).FirstOrDefault() is { } letter)
+            return new(letter.Letter, true, string.IsNullOrWhiteSpace(letter.Label) ? Lang.T("Local disk") : letter.Label, letter.Letter, true);
+        string? name = Core.Storage.AppDrives.ShortName(group?.Name, key);
+        return new(name ?? "", false, name ?? Lang.T("Not connected now"), name, group is not null);
+    }
 }

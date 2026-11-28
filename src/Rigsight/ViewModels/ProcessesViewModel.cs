@@ -50,8 +50,10 @@ public sealed partial class SortHeading(string key, string label) : ObservableOb
 public enum ProcMenuKind { Item, Separator, Header, Note }
 
 /// <summary>A line of a row's menu, as the page builds it (the view turns these into a ContextMenu).</summary>
-/// <remarks><paramref name="Ai"/>: an AI line, shown with the AI's sparkle (only while the AI is on).</remarks>
-public sealed record ProcMenuEntry(ProcMenuKind Kind, string Text = "", string? Hint = null, string Glyph = "", bool Enabled = true, bool Danger = false, Func<Task>? Run = null, bool Ai = false);
+/// <remarks><paramref name="Ai"/>: an AI line, shown with the AI's sparkle (only while the AI is on). <paramref name="Items"/>:
+/// the lines of its own menu, which opens beside it. <paramref name="Checked"/>: a line that is ticked or not (one of a choice).</remarks>
+public sealed record ProcMenuEntry(ProcMenuKind Kind, string Text = "", string? Hint = null, string Glyph = "", bool Enabled = true, bool Danger = false, Func<Task>? Run = null, bool Ai = false,
+    IReadOnlyList<ProcMenuEntry>? Items = null, bool? Checked = null);
 
 /// <summary>Something to end: an app (every process of it), or one of its processes.</summary>
 public sealed record EndTarget(ProcRow App, ProcChild? Process = null)
@@ -218,6 +220,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
             }
             foreach (var row in Live.Procs) row.Net = speeds?.GetValueOrDefault(row.Exe) ?? 0;
             NoneMatch = Filtering && _view.IsEmpty;
+            CountShown();
         }
 
         var (memory, cpu, internet, disk) = (Tiles[0], Tiles[1], Tiles[2], Tiles[3]);
@@ -264,7 +267,13 @@ public sealed partial class ProcessesViewModel : ObservableObject
     {
         _view.Refresh();
         NoneMatch = Filtering && _view.IsEmpty;
+        CountShown();
     }
+
+    /// <summary>With only the apps with a window open asked for, how many of the apps running the list shows ("8 of 64 apps running").</summary>
+    [ObservableProperty] private string _shownOfRunning = "";
+
+    private void CountShown() => ShownOfRunning = OnlyWindowed ? Lang.T($"{_view.Count} of {Live.Procs.Count} apps running") : "";
 
     // ── Sorting: every heading is a button, and so is every total ──
 
@@ -407,6 +416,11 @@ public sealed partial class ProcessesViewModel : ObservableObject
             new(ProcMenuKind.Item, Lang.T("Copy path"), Glyph: "", Enabled: hasPath, Run: () => Done(Copy(app.Path!, Lang.T("Path copied")))),
             new(ProcMenuKind.Separator),
         };
+        // Its kind, picked as on Apps (one choice per app, which every page goes by). Not for one of its processes.
+        if (target.Process is null && app.Category is { } kind)
+            menu.Insert(2, new(ProcMenuKind.Item, Lang.T("Category"), Glyph: "", Items:
+                [.. Enum.GetValues<Core.Settings.AppCategory>().Select(c => new ProcMenuEntry(ProcMenuKind.Item, AppCatalog.Label(c), Checked: c == kind,
+                    Run: () => Done(() => Live.SetCategory(app, c))))]));
         // What it is, asked of the AI: first, while the AI is on and Processes is shared (mock-up, 2026-10-26).
         var ask = new AiQuestion(Lang.T($"What is {app.Name}, and is it normal for it to use {app.MemText} of memory?"), Core.Ai.AiPages.Processes);
         if (target.Process is null && AiGate.Shows(ask))

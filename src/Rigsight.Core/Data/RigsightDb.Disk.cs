@@ -84,6 +84,14 @@ public sealed partial class RigsightDb
     public List<DiskAppUse> GetDiskTotals(long from, long to) =>
         ReadDiskUse("SELECT 0, 0, disk, sum(read), sum(write) FROM disk_app_day WHERE day >= $from AND day < $to GROUP BY disk ORDER BY disk", from, to, null);
 
+    /// <summary>The first day (local midnight) with any app's reads or writes on record; null with none (Custom's first day).</summary>
+    public long? FirstDiskDay()
+    {
+        if (!HasDiskUse) return null;
+        using var cmd = Cmd("SELECT min(day) FROM disk_app_day");
+        return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
     private List<DiskAppUse> ReadDiskUse(string sql, long from, long to, string? disk, int top = int.MaxValue)
     {
         var list = new List<DiskAppUse>();

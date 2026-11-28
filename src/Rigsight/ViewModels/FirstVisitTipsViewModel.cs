@@ -26,6 +26,8 @@ public sealed partial class FirstVisitTipsViewModel(SettingsModel settings, Func
         ["crashes"] = (Lang.Key("Crashes from the last 90 days"), Lang.Key("Windows' own logs come in here within a minute. New crashes show up as they happen, with an alert at the corner of your screen.")),
         ["timeline"] = (Lang.Key("Timeline"), Lang.Key("Everything that changed on this PC (drivers, Windows updates, BIOS, settings), with what got better or worse after.")),
         ["temperatures"] = (Lang.Key("Temperatures"), Lang.Key("Every part's heat, now and over time. You get an alert when the CPU passes 85° or the GPU 83°. You can change that in Settings.")),
+        ["gpu"] = (Lang.Key("GPU"), Lang.Key("What the GPU is doing right now, and each day's heat, load, power and clock, with games kept apart from everything else.")),
+        ["cpu"] = (Lang.Key("CPU"), Lang.Key("Each core right now, and each day's heat, load, power and clock, with games kept apart from everything else.")),
         ["startup"] = (Lang.Key("Start-up"), Lang.Key("How long each start took, in three parts, against your usual. Click a start to see what Windows reported and what changed before it.")),
         ["latency"] = (Lang.Key("Latency"), Lang.Key("How long each driver kept a CPU core busy, and how long apps waited to run. Click a driver for its details.")),
         ["power"] = (Lang.Key("Power"), Lang.Key("Where the CPU and GPU power went, and the apps in front meanwhile.")),

@@ -23,6 +23,9 @@ public static partial class Inventory
 
     public const string On = "on", Off = "off";
 
+    /// <summary>How a graphics card put in or taken out is saved (English, the change's title before the card's name).</summary>
+    public const string CardAdded = "Graphics card added: ", CardRemoved = "Graphics card removed: ";
+
     /// <summary>The setting that isn't on or off: which power plan Windows is on, by name.</summary>
     public const string PowerPlan = "power-plan";
 
@@ -579,7 +582,7 @@ public static partial class Inventory
                 {
                     case App: Add(ChangeKind.AppInstalled, item, $"{item.Name} installed", value: item.Value); break;
                     case Startup when item.Value == On: Add(ChangeKind.Startup, item, $"{item.Name} now starts with Windows"); break;
-                    case Gpu: Add(ChangeKind.Hardware, item, $"Graphics card added: {item.Name}"); break;
+                    case Gpu: Add(ChangeKind.Hardware, item, CardAdded + item.Name); break;
                     case Disk: Add(ChangeKind.Hardware, item, $"Drive added: {item.Name}"); break;
                 }
                 continue;
@@ -608,7 +611,7 @@ public static partial class Inventory
                 {
                     case App: Add(ChangeKind.AppRemoved, old, $"{old.Name} removed", old.Value); break;
                     case Startup when old.Value == On: Add(ChangeKind.Startup, old, $"{old.Name} no longer starts with Windows"); break;
-                    case Gpu: Add(ChangeKind.Hardware, old, $"Graphics card removed: {old.Name}"); break;
+                    case Gpu: Add(ChangeKind.Hardware, old, CardRemoved + old.Name); break;
                     case Disk: Add(ChangeKind.Hardware, old, $"Drive removed: {old.Name}"); break;
                 }
             }

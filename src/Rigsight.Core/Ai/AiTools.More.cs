@@ -425,13 +425,13 @@ public sealed partial class AiTools
         {
             var all = db.GetAppMemoryTotals(f, t).Where(x => x.MemN > 0).ToList();
             var most = all.OrderByDescending(x => x.MemSum / x.MemN).Take(8).ToList();
-            // Each with its usual, the Memory page's figure (30 days before today), so "usual" means one thing everywhere.
-            var usual = MemoryPast.UsualOf(db, DateTime.Now);
+            // Each with its usual, the Memory page's spread (30 days before today), so "usual" means one thing everywhere.
+            var usual = MemoryPast.SpreadOf(db, DateTime.Now);
             var exes = db.LoadApps().ToDictionary(a => a.Id, a => a.Exe);
-            string Usual(long app) => exes.TryGetValue(app, out var exe) && usual.TryGetValue(exe, out double u) ? $" (usual {Units.Megabytes(u)})" : "";
+            string Usual(long app) => exes.TryGetValue(app, out var exe) && usual.TryGetValue(exe, out var u) ? $" (usual {u.Text})" : "";
             if (most.Count > 0) sb.AppendLine($"Apps using the most memory on average while open on {said}" + (all.Count > most.Count ? $" (the top {most.Count} of {all.Count} apps; get_apps has each app's memory)" : "") + ": "
                 + string.Join(", ", most.Select(m => $"{name(m.AppId)} {Units.Megabytes(m.MemSum / m.MemN)}{Usual(m.AppId)}")) + ".");
-            if (most.Count > 0 && usual.Count > 0) sb.AppendLine($"An app's usual is its average memory over the {AppPast.UsualDays} days before today, the figure the Memory page shows; use it when they say \"usual\".");
+            if (most.Count > 0 && usual.Count > 0) sb.AppendLine($"An app's usual is the middle half of its days over the {AppPast.UsualDays} days before today, each day its average memory over every second it ran: the spread the Memory page shows; use it when they say \"usual\". The averages above count only the moments an app was busy, big or had a window, so they can sit above its usual.");
         }
         return sb.ToString();
     }

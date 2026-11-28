@@ -30,6 +30,17 @@ public static class SmoothWheel
     public static bool GetEnabled(DependencyObject d) => (bool)d.GetValue(EnabledProperty);
     public static void SetEnabled(DependencyObject d, bool value) => d.SetValue(EnabledProperty, value);
 
+    /// <summary>
+    /// A box that keeps Windows' own wheel: each notch moves at once, with no glide (All sensors, 1.23.0: its long list
+    /// of live rows built new rows on every frame of a glide, and a fast spin lagged). A touchpad's parts of a notch still
+    /// move by their share (see <see cref="TryPart"/>), as everywhere else.
+    /// </summary>
+    public static readonly DependencyProperty PlainProperty = DependencyProperty.RegisterAttached(
+        "Plain", typeof(bool), typeof(SmoothWheel), new PropertyMetadata(false));
+
+    public static bool GetPlain(DependencyObject d) => (bool)d.GetValue(PlainProperty);
+    public static void SetPlain(DependencyObject d, bool value) => d.SetValue(PlainProperty, value);
+
     /// <summary>How long one notch's glide takes (the approved mock-up's tenth of a second).</summary>
     public static readonly TimeSpan Duration = TimeSpan.FromMilliseconds(100);
 
@@ -115,7 +126,7 @@ public static class SmoothWheel
     /// can move that way. False leaves it to WPF's wheel (or the caller's own).
     /// </summary>
     internal static bool TryGlide(ScrollViewer sv, int delta) =>
-        (_everywhere || GetEnabled(sv)) && delta != 0 && delta % 120 == 0 && Services.Motion.Enabled && !ByItem(sv) && Glide(sv, delta);
+        (_everywhere || GetEnabled(sv)) && !GetPlain(sv) && delta != 0 && delta % 120 == 0 && Services.Motion.Enabled && !ByItem(sv) && Glide(sv, delta);
 
     /// <summary>Whether <paramref name="sv"/> is gliding now (the tests).</summary>
     internal static bool IsGliding(ScrollViewer sv) => Glides.ContainsKey(sv);

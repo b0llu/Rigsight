@@ -87,6 +87,23 @@ internal sealed class ActivityMonitor
         return true;
     }
 
+    private readonly System.Text.StringBuilder _title = new(256);
+
+    /// <summary>The exe of the Store app in ApplicationFrameHost's frame <paramref name="frame"/>, or null when it holds none.</summary>
+    private string? StoreAppIn(IntPtr frame, int hostPid)
+    {
+        _hostPid = hostPid;
+        _childPid = 0;
+        Win32.EnumChildWindows(frame, _enumChild, IntPtr.Zero);
+        if (_childPid != 0) return ExeFor(_childPid);
+        _title.Clear();
+        if (Win32.GetWindowText(frame, _title, _title.Capacity) == 0) return null;
+        var core = Win32.FindWindowEx(IntPtr.Zero, IntPtr.Zero, "Windows.UI.Core.CoreWindow", _title.ToString());
+        if (core == IntPtr.Zero) return null;
+        Win32.GetWindowThreadProcessId(core, out int pid);
+        return pid == hostPid ? null : ExeFor(pid);
+    }
+
     /// <summary>The window covers its whole monitor (exclusive fullscreen, or a borderless or "fullscreen" window); not the desktop.</summary>
     internal static bool IsFullscreen(IntPtr hwnd)
     {
@@ -101,7 +118,12 @@ internal sealed class ActivityMonitor
         return r.Left <= m.Left && r.Top <= m.Top && r.Right >= m.Right && r.Bottom >= m.Bottom;
     }
 
-    /// <summary>Which apps have visible top-level windows, and whether they are all minimized.</summary>
+    /// <summary>
+    /// Which apps have a window open (the ones the taskbar and Alt+Tab show, minimized ones too), and whether they are
+    /// all minimized. A Store app's window belongs to ApplicationFrameHost: it's credited to the app inside it, as
+    /// <see cref="Sample"/> does. A window hidden only because it's on another desktop counts; one Windows hides for
+    /// any other reason (a Store app suspended in the background, a window an app cloaks itself) doesn't.
+    /// </summary>
     public Dictionary<string, WindowState> ScanWindows()
     {
         _scanResult = new Dictionary<string, WindowState>(StringComparer.OrdinalIgnoreCase);
@@ -111,18 +133,31 @@ internal sealed class ActivityMonitor
         return result;
     }
 
+    /// <summary>DWM_CLOAKED_SHELL: hidden by Windows' shell, which is how a window on another desktop is hidden.</summary>
+    private const int CloakedByShell = 2;
+
     private bool OnTopWindow(IntPtr hwnd, IntPtr _)
     {
         if (!Win32.IsWindowVisible(hwnd)) return true;
         if (Win32.GetWindow(hwnd, Win32.GW_OWNER) != IntPtr.Zero) return true;
         if (((long)Win32.GetWindowLongPtr(hwnd, Win32.GWL_EXSTYLE) & Win32.WS_EX_TOOLWINDOW) != 0) return true;
         if (Win32.GetWindowTextLength(hwnd) == 0) return true;
-        if (Win32.DwmGetWindowAttribute(hwnd, Win32.DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
+        if (Win32.DwmGetWindowAttribute(hwnd, Win32.DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0
+            && !(cloaked == CloakedByShell && VirtualDesktops.OnAnotherDesktop(hwnd))) return true;
 
         if (ShellClasses.Contains(Win32.ClassName(hwnd))) return true;
         Win32.GetWindowThreadProcessId(hwnd, out int pid);
         var exe = ExeFor(pid);
         if (exe is null || _scanResult is null || NotApps.Contains(exe)) return true;
+
+        // A Store app (Calculator, Settings): the frame is ApplicationFrameHost's, the app owns a window inside it. Once
+        // minimized a while, Windows takes the app's window out of the frame: it's found by the frame's title then. A
+        // frame with no app either way is left over from one that has gone: no app to credit.
+        if (exe.Equals("ApplicationFrameHost.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            if (StoreAppIn(hwnd, pid) is not { } inside || NotApps.Contains(inside)) return true;
+            exe = inside;
+        }
 
         bool minimized = Win32.IsIconic(hwnd);
         var prev = _scanResult.GetValueOrDefault(exe);

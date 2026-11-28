@@ -50,6 +50,12 @@ public sealed class ActivityInfo
     public double SessionActiveSec { get; set; }
     public double? SessionCpuMax { get; set; }
     public double? SessionGpuMax { get; set; }
+    /// <summary>
+    /// Since 1.23.0, the app in front's own GPU memory at the last process sample, in MB (the GPU page's GPU MEMORY tile).
+    /// Null where Windows doesn't say, and from an older agent.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? VramMb { get; set; }
 }
 
 /// <summary>Running totals for today, kept live by the agent.</summary>
@@ -175,6 +181,8 @@ public sealed class ProcInfo
     public double Cpu { get; set; }
     public double MemMB { get; set; }
     public bool HasWindow { get; set; }
+    /// <summary>Its kind (Games, Browsing…), the person's choice where they made one; null from an older agent.</summary>
+    public AppCategory? Category { get; set; }
     /// <summary>What its processes read and write, in bytes a second (0 from an agent that doesn't measure it). Most apps
     /// are at rest at any moment: nothing is sent for those.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
@@ -312,6 +320,29 @@ public sealed class LatencyLive
     public string[] Driver { get; set; } = [];
     public int[] WakeUs { get; set; } = [];
     public int[] WakeMedianUs { get; set; } = [];
+
+    /// <summary>
+    /// Since 1.23.0 (issue #18, item 11): every driver that made a call in the last <see cref="DriversNowSeconds"/>
+    /// seconds, busiest first, for Drivers right now. Sent every 2 seconds; null on the ticks between (the page keeps
+    /// what it has), from older agents, and while the driver trace isn't running. Empty: no driver made a call.
+    /// </summary>
+    public List<LatencyDriverNow>? DriversNow { get; set; }
+    /// <summary>The seconds <see cref="DriversNow"/> covers: 10, fewer just after the page opened.</summary>
+    public int DriversNowSeconds { get; set; }
+}
+
+/// <summary>A driver's calls over the last few seconds (see <see cref="LatencyLive.DriversNow"/>), threaded DPCs left out as everywhere else.</summary>
+public sealed class LatencyDriverNow
+{
+    /// <summary>Its file, lower case ("nvlddmkm.sys"), or "" for calls that matched no loaded driver.</summary>
+    public string Driver { get; set; } = "";
+    public int Calls { get; set; }
+    /// <summary>Its own time on the CPU in those seconds, all cores together (µs): its DPCs' and its interrupts' below.</summary>
+    public long BusyUs { get; set; }
+    public long DpcUs { get; set; }
+    public long IsrUs { get; set; }
+    /// <summary>Its longest single call (µs).</summary>
+    public int LongestUs { get; set; }
 }
 
 public sealed class AgentMessage

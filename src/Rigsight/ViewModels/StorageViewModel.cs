@@ -218,7 +218,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         await Task.Run(DriveScans.LoadSaved);
         await RefreshAsync();
         ShowPicked();
-        await LoadDiskUseAsync();
+        await LoadDiskUseAsync(again: false);
     }
 
     public async Task RefreshAsync()

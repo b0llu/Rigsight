@@ -162,7 +162,8 @@ public sealed partial class MemoryViewModel(ReportService reports, LiveData live
 
     private void Annotate(ProcRow row)
     {
-        row.UsualMB = _past!.Usual.TryGetValue(row.Exe, out double usual) ? usual : null;
+        row.UsualSpread = _past!.Spread.TryGetValue(row.Exe, out var spread) ? spread : null;
+        row.UsualMB = _past.Usual.TryGetValue(row.Exe, out double usual) ? usual : null;
         var started = row.Started > 0 ? TimeUtil.FromUnix(row.Started) : (DateTime?)null;
         bool hasHours = _past.Hours.TryGetValue(row.Exe, out var hours);
         row.GrowingSince = hasHours && GrowingSince(hours!, row.MemMB, row.UsualMB, started, _readAt) is { } since

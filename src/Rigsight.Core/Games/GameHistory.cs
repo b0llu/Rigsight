@@ -113,11 +113,16 @@ public static class GameHistory
         var totals = db.GetSessionTotals().ToDictionary(t => t.AppId);
         var loads = db.GetAppGpuLoads();
         var byKey = new Dictionary<string, List<(AppRow App, AppTotal Total)>>();
+        // The person's choice first, both ways (1.23.0): a launcher's game they marked not a game (see NotGames) leaves with
+        // its programs, unless they said a program of it is a game; and its listing doesn't come back as installed.
+        var notGames = NotGames.MarkedInstalled(installed, s);
         foreach (var app in apps)
         {
-            var category = s.AppCategories.TryGetValue(app.Exe, out var c) ? c : app.Category;
+            bool chosen = s.AppCategories.TryGetValue(app.Exe, out var c);
+            var category = chosen ? c : app.Category;
             if (category != AppCategory.Game || !totals.TryGetValue(app.Id, out var total) || total.ActiveSec < 60) continue;
             var game = GameLibrary.Find(installed, app.Path);
+            if (!chosen && game is not null && notGames.Contains(game.Key)) continue;
             var key = game?.Key ?? "app:" + app.Exe;
             (byKey.TryGetValue(key, out var list) ? list : byKey[key] = []).Add((app, total));
         }
@@ -145,7 +150,10 @@ public static class GameHistory
                 GpuLoad = loads.TryGetValue(main.Id, out var load) ? load : null,
             });
         }
-        foreach (var game in installed.Where(g => !byKey.ContainsKey(g.Key)))
+        // An installed game whose played program the person said isn't a game (on Apps, before 1.23.0 wrote the game's own
+        // key too) doesn't come back as installed and never played.
+        notGames.UnionWith(NotGames.LeftByPrograms(apps, installed, s, id => totals.TryGetValue(id, out var t) ? t.ActiveSec : 0));
+        foreach (var game in installed.Where(g => !byKey.ContainsKey(g.Key) && !notGames.Contains(g.Key)))
             entries.Add(new GameEntry { Name = game.Name, Installed = game, Launcher = game.Launcher, LastPlayed = null });
         return entries;
     }

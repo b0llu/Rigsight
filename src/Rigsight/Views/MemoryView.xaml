@@ -137,24 +137,6 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <!-- The mark on an app's bar at its usual: a bar of its own over the first, of which only the end shows. -->
-        <Style x:Key="UsualMark" TargetType="ProgressBar">
-            <Setter Property="Height" Value="14" />
-            <Setter Property="Maximum" Value="100" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ProgressBar">
-                        <Grid>
-                            <Border x:Name="PART_Track" />
-                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left">
-                                <Border Width="2" CornerRadius="1" HorizontalAlignment="Right" Background="{DynamicResource MutedBrush}" />
-                            </Border>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
     <!-- The live list takes what the window has left under the cards above it, but never less than its MinHeight (it
          was down to a few rows on a small window): then the page scrolls. Its height is set in the code-behind, from
@@ -356,7 +338,7 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
-                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with windows'}" FontSize="{x:Static ctl:TextSize.Detail}"
+                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with a window open'}" FontSize="{x:Static ctl:TextSize.Detail}"
                                   IsChecked="{Binding Live.OnlyWindowedApps}" />
                         <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
                                  AutomationProperties.Name="{ctl:T 'Search the apps using memory'}" ctl:Debounce.Text="{Binding Live.ProcSearch}" />
@@ -364,7 +346,11 @@
                         <CheckBox x:Name="OverFilter" DockPanel.Dock="Right" Style="{StaticResource OverFilter}" Content="{ctl:T 'Above their usual'}" Margin="0,0,18,0"
                                   Tag="{Binding Live.AboveUsualCount}" IsChecked="{Binding Live.OnlyAboveUsual}" IsEnabled="{Binding Live.HasAboveUsual}"
                                   AutomationProperties.Name="{ctl:T 'Above their usual'}" />
-                        <TextBlock Text="{ctl:T 'Using memory right now'}" Style="{StaticResource H2}" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{ctl:T 'Using memory right now'}" Style="{StaticResource H2}" />
+                            <TextBlock Text="{ctl:T 'Usual is the middle half of the 30 days before today'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
+                                       TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                        </StackPanel>
                     </DockPanel>
                     <!-- The first days: no app has a usual yet, so no row is marked; this says why. -->
                     <HeaderedContentControl DockPanel.Dock="Top" Style="{StaticResource IconRow}" Padding="12,0,0,0" Margin="0,2,8,10"
@@ -385,7 +371,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="2*" />
                             <ColumnDefinition Width="90" />
-                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="120" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="{ctl:T APP}" Style="{StaticResource Caption}" Margin="62,0,0,0" />
                         <TextBlock Grid.Column="2" Text="{ctl:T NOW}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
@@ -411,7 +397,7 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="2*" />
                                             <ColumnDefinition Width="90" />
-                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="120" />
                                         </Grid.ColumnDefinitions>
                                         <DockPanel>
                                             <Grid Width="20" VerticalAlignment="Center">
@@ -439,12 +425,14 @@
                                             </Grid.ToolTip>
                                             <ProgressBar Style="{StaticResource Bar}" VerticalAlignment="Center" Maximum="100"
                                                          Value="{Binding Bar, Mode=OneWay}" Foreground="{DynamicResource RamBrush}" />
-                                            <ProgressBar Style="{StaticResource UsualMark}" VerticalAlignment="Center" Value="{Binding Mark, Mode=OneWay}"
-                                                         Visibility="{Binding HasUsual, Converter={StaticResource Vis}}" />
+                                            <!-- Its usual: the middle half of its days as a dashed band over the bar (1.23.0 mock-up, Memory). -->
+                                            <ctl:UsualBand Height="14" VerticalAlignment="Center" From="{Binding MarkLow, Mode=OneWay}" To="{Binding MarkHigh, Mode=OneWay}"
+                                                           Stroke="{DynamicResource MutedBrush}" Visibility="{Binding HasUsual, Converter={StaticResource Vis}}" />
                                         </Grid>
                                         <TextBlock x:Name="Now" Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Body}" FontWeight="SemiBold"
                                                    HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="3" Text="{Binding UsualText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{Binding UsualText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   ToolTip="{Binding UsualTip}" />
                                     </Grid>
                                     <!-- Above its usual: since when, with its peak today, and what to do about it asked of the AI. The
                                          button keeps its room while the AI is off (a hidden twin under it), so no row changes height. -->
@@ -470,7 +458,7 @@
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="2*" />
                                                         <ColumnDefinition Width="90" />
-                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="120" />
                                                     </Grid.ColumnDefinitions>
                                                     <!-- Spans the bar's column too: window titles can be long. -->
                                                     <TextBlock Grid.ColumnSpan="2" Margin="54,0,16,0" Style="{StaticResource Muted}" VerticalAlignment="Center"

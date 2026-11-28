@@ -20,7 +20,14 @@ public sealed record RunsPoint(DateTime At, DateTime End, double ActiveSec, doub
 public sealed record RunsMark(DateTime Time, string Label, string Title);
 
 /// <summary>A minute of one play, from its frames: the true average, 1% low and its stutters, and a line about its stutters' possible cause (driver activity) when there is one.</summary>
-public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutters, HoverNote? Note = null, int SoundCuts = 0);
+/// <remarks><see cref="Rich"/>: since 1.23.0 the minute's rich hover (what the game and the PC were doing, see StutterStretches), made when first shown; null: the plain box.</remarks>
+public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutters, HoverNote? Note = null, int SoundCuts = 0, Func<RichTip>? Rich = null);
+
+/// <summary>
+/// A stretch of the play where its stutters bunched up (1.23.0, "Where it stuttered"): a faint wash of its colour (a
+/// palette colour's key, "PinkColor") over its minutes, stronger with a bar along its top when it's the one picked.
+/// </summary>
+public sealed record RunsStretch(DateTime From, DateTime To, string ColorKey, bool Picked);
 
 /// <summary>
 /// The Games page's "How it runs" as one chart (approved mock-up "How it runs, as one chart", 2026-10-27): the plays over
@@ -57,6 +64,7 @@ public sealed class RunsChart : FrameworkElement
     public static readonly DependencyProperty StuttersProperty = Register<IReadOnlyList<Stutter>?>(nameof(Stutters), null);
     public static readonly DependencyProperty PlayStartProperty = Register<DateTime?>(nameof(PlayStart), null);
     public static readonly DependencyProperty SlotsProperty = Register(nameof(Slots), false);
+    public static readonly DependencyProperty StretchesProperty = Register<IReadOnlyList<RunsStretch>?>(nameof(Stretches), null);
     public static readonly DependencyProperty ShowPlayProperty = DependencyProperty.Register(nameof(ShowPlay), typeof(bool), typeof(RunsChart),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender, (d, e) => ((RunsChart)d).ZoomTo((bool)e.NewValue)));
 
@@ -78,6 +86,8 @@ public sealed class RunsChart : FrameworkElement
     public bool ShowPlay { get => (bool)GetValue(ShowPlayProperty); set => SetValue(ShowPlayProperty, value); }
     /// <summary>The plays (never weeks) each in its own slot, named by date (see the class summary).</summary>
     public bool Slots { get => (bool)GetValue(SlotsProperty); set => SetValue(SlotsProperty, value); }
+    /// <summary>The play's stretches, lit over its minutes (see <see cref="RunsStretch"/>).</summary>
+    public IReadOnlyList<RunsStretch>? Stretches { get => (IReadOnlyList<RunsStretch>?)GetValue(StretchesProperty); set => SetValue(StretchesProperty, value); }
     private double Zoom => (double)GetValue(ZoomProperty);
 
     /// <summary>A play with frame data, or a week, was clicked.</summary>
@@ -90,7 +100,9 @@ public sealed class RunsChart : FrameworkElement
 
     public RunsChart()
     {
-        ClipToBounds = true;
+        // Not clipped by the element: the chart clips its own drawing, and a minute's rich hover may rise above it (over
+        // the card's heading, as Power's does).
+        ClipToBounds = false;
         // Drawn already shown (a page opened on a play): no zoom to watch.
         Loaded += (_, _) => SetValue(ZoomProperty, ShowPlay ? 1.0 : 0.0);
     }
@@ -248,6 +260,24 @@ public sealed class RunsChart : FrameworkElement
     {
         double w = ActualWidth, h = ActualHeight;
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, w, h));
+        _rich = null;
+        dc.PushClip(new RectangleGeometry(new Rect(0, 0, w, h)));
+        try { Draw(dc, w, h); }
+        finally { dc.Pop(); }
+        // A minute's rich hover, outside the clip: beside its minute, up over the heading when it says a lot.
+        if (_rich is { } rich) RichHover.Draw(dc, this, rich.Tip, rich.Bar, new Rect(0, -RiseAbove, w, h + RiseAbove));
+    }
+
+    /// <summary>How far a minute's rich hover may rise above the chart: over its heading, inside its card.</summary>
+    private const double RiseAbove = 56;
+
+    // The rich hover to draw over everything this time (set while drawing), and the one made for the minute under the
+    // pointer, kept while it stays there.
+    private (RichTip Tip, Rect Bar)? _rich;
+    private (IReadOnlyList<RunsMinute>? Minutes, int Index, RichTip? Tip) _tip;
+
+    private void Draw(DrawingContext dc, double w, double h)
+    {
         _xs.Clear();
         _minuteXs.Clear();
         _flags.Clear();
@@ -465,7 +495,16 @@ public sealed class RunsChart : FrameworkElement
             double span = Math.Max(1, (b - a).Ticks);
             double Xm(DateTime t) => Left + (t - a).Ticks / span * (w - Left - Right);
             foreach (var m in mins) _minuteXs.Add(Xm(m.At.AddSeconds(30)));
-            var top = mins.Select((m, i) => new Point(_minuteXs[i], Y(m.Fps!.Value))).ToList();
+            // The stretches where the stutters bunched up, under everything: the one picked stronger, with a bar on top.
+            foreach (var st in Stretches ?? [])
+            {
+                double x1 = Math.Max(Left, Xm(st.From)), x2 = Math.Min(w - Right, Xm(st.To));
+                if (x2 - x1 < 3) { double c = (x1 + x2) / 2; (x1, x2) = (c - 1.5, c + 1.5); }
+                var color = ChartPaint.Res(st.ColorKey, 0x80);
+                dc.DrawRoundedRectangle(ChartPaint.Brush(color, st.Picked ? 0.13 : 0.045), null, new Rect(x1, Top, x2 - x1, railBase - Top), 3, 3);
+                if (st.Picked) dc.DrawRoundedRectangle(ChartPaint.Brush(color), null, new Rect(x1, Top, x2 - x1, 3), 1.5, 1.5);
+            }
+            var top =mins.Select((m, i) => new Point(_minuteXs[i], Y(m.Fps!.Value))).ToList();
             // Broken where the play has no frames for over two minutes (the game behind other windows, say).
             foreach (var run in Runs(mins.Count, i => mins[i].At, TimeSpan.FromMinutes(2.5)))
             {
@@ -529,6 +568,19 @@ public sealed class RunsChart : FrameworkElement
         {
             double x = Math.Round(x0) + 0.5;
             dc.DrawLine(new Pen(ChartPaint.Cursor, 1), new Point(x, Top), new Point(x, railBase));
+            // Since 1.23.0: what the game and the PC were doing, as a rich hover beside the minute (drawn last, unclipped).
+            if (m.Rich is { } make)
+            {
+                dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(m.Fps!.Value)), 3.5, 3.5);
+                double half = _minuteXs.Count > 1 ? Math.Max(2, Math.Abs(_minuteXs[1] - _minuteXs[0]) / 2) : 4;
+                if (!(ReferenceEquals(_tip.Minutes, Minutes) && _tip.Index == _hoverMinute && _tip.Tip is { } made))
+                {
+                    made = make();
+                    _tip = (Minutes, _hoverMinute, made);
+                }
+                _rich = (made, new Rect(x0 - half, Top, half * 2, railBase - Top));
+                return;
+            }
             var facts = new List<ChartPaint.HoverFact>();
             if (m.Low is double low) facts.Add(new(Lang.T("1% low"), Lang.T($"{low:0} fps")));
             facts.Add(m.Stutters switch

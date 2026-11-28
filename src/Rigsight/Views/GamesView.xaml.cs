@@ -52,6 +52,49 @@ public partial class GamesView : UserControl
         if (Part<RunsChart>("Runs") is { } runs) runs.Opened += point => (DataContext as ViewModels.GamesViewModel)?.OpenFromChart(point);
     }
 
+    /// <summary>
+    /// The opened game's ⋯ (1.23.0, approved mock-up): Not a game, then the game's folder. Built as Apps' menu is, under
+    /// the button with the right edges lined up, an icon on every item so the words line up.
+    /// </summary>
+    private void GameMore_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ViewModels.GamesViewModel vm || vm.Opened is null || sender is not Button button) return;
+        var menu = new ContextMenu
+        {
+            PlacementTarget = button,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.Custom,
+            CustomPopupPlacementCallback = (popup, target, _) =>
+                [new System.Windows.Controls.Primitives.CustomPopupPlacement(new Point(target.Width - popup.Width, target.Height + 4), System.Windows.Controls.Primitives.PopupPrimaryAxis.Horizontal)],
+        };
+        static MenuItem Item(string header, string glyph) => new()
+        {
+            Header = header,
+            Icon = new TextBlock { Text = glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = Controls.IconSize.S14 },
+            FocusVisualStyle = null,
+        };
+        var notGame = Item(Lang.T("Not a game"), ""); // game controller
+        notGame.Command = vm.NotAGameCommand;
+        menu.Items.Add(notGame);
+        var folder = Item(Lang.T("Open game folder"), ""); // folder
+        folder.Command = vm.OpenFolderCommand;
+        folder.IsEnabled = vm.GameHasFolder;
+        menu.Items.Add(folder);
+        menu.IsOpen = true;
+    }
+
+    /// <summary>"N apps you marked as not games": opens the list to put them back (closes on a click outside it).</summary>
+    private void NotGames_Click(object sender, RoutedEventArgs e)
+    {
+        // A click on the line while the list is open closes it (a click outside it) and must not open it again.
+        if (Environment.TickCount64 - _notGamesClosedAt < 250) return;
+        NotGamesMenu.Closed -= NotGamesMenu_Closed;
+        NotGamesMenu.Closed += NotGamesMenu_Closed;
+        NotGamesMenu.IsOpen = true;
+    }
+
+    private long _notGamesClosedAt;
+    private void NotGamesMenu_Closed(object? sender, EventArgs e) => _notGamesClosedAt = Environment.TickCount64;
+
     private long _runsMenuClosedAt;
 
     private void OpenRunsMenu()
@@ -101,6 +144,12 @@ public partial class GamesView : UserControl
             bool searching = Core.TextMatch.Words(searched.Search).Length > 0;
             if (searching && LibraryBox.MinHeight == 0) LibraryBox.MinHeight = LibraryBox.ActualHeight;
             else if (!searching) LibraryBox.MinHeight = 0;
+            return;
+        }
+        // The last one put back: the list it was in goes with its line.
+        if (e.PropertyName == nameof(ViewModels.GamesViewModel.HasNotGames) && sender is ViewModels.GamesViewModel { HasNotGames: false })
+        {
+            NotGamesMenu.IsOpen = false;
             return;
         }
         if (e.PropertyName != nameof(ViewModels.GamesViewModel.IsGame) || sender is not ViewModels.GamesViewModel vm) return;

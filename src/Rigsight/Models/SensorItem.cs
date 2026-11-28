@@ -188,6 +188,7 @@ public sealed partial class SensorItem : ObservableObject
         if (Kind == SensorKind.Temperature && v <= 0) v = null;
 
         AddSample(timeMs, v ?? double.NaN);
+        bool moved = Value != v;
         Value = v;
         if (v is double d)
         {
@@ -198,17 +199,43 @@ public sealed partial class SensorItem : ObservableObject
             Average = _sum / _count;
         }
 
-        OnPropertyChanged(nameof(FormattedValue));
-        OnPropertyChanged(nameof(ShortValue));
-        OnPropertyChanged(nameof(FormattedMin));
-        OnPropertyChanged(nameof(FormattedMax));
-        OnPropertyChanged(nameof(FormattedAverage));
-        OnPropertyChanged(nameof(MinMaxText));
+        // Only the words that read differently are said to have changed (1.23.0): a steady reading's row on All sensors
+        // was told of nine changes at every reading, and redid every binding of them each time.
+        Said(ref _saidMin, FormattedMin, nameof(FormattedMin));
+        Said(ref _saidMax, FormattedMax, nameof(FormattedMax));
+        Said(ref _saidValue, FormattedValue, nameof(FormattedValue));
+        // Pages that work things out from the short figure (a drive's health) hear of every new reading, as before.
+        if (!Said(ref _saidShort, ShortValue, nameof(ShortValue)) && moved) OnPropertyChanged(nameof(ShortValue));
+        Said(ref _saidAverage, FormattedAverage, nameof(FormattedAverage));
+        if (Said(ref _saidRange, RangeText, nameof(RangeText))) OnPropertyChanged(nameof(MinMaxText));
         if (Kind == SensorKind.Battery) OnPropertyChanged(nameof(BatteryStats));
-        OnPropertyChanged(nameof(RangeText));
-        OnPropertyChanged(nameof(RangeShare));
+        if (RangeShare is var share && share != _saidShare)
+        {
+            _saidShare = share;
+            OnPropertyChanged(nameof(RangeShare));
+        }
         if (Kind == SensorKind.Battery) OnPropertyChanged(nameof(BatteryTrend));
         Version++;
+    }
+
+    // The words last said for each figure (null: not said yet, or to be said again after RefreshFormatting).
+    private string? _saidValue, _saidShort, _saidMin, _saidMax, _saidAverage, _saidRange;
+    private double _saidShare = double.NaN;
+
+    /// <summary>Says <paramref name="name"/> changed when it now reads differently from <paramref name="said"/>; true if it did.</summary>
+    private bool Said(ref string? said, string now, string name)
+    {
+        if (said == now) return false;
+        said = now;
+        OnPropertyChanged(name);
+        return true;
+    }
+
+    /// <summary>Every figure is said again at the next reading (the unit changed, or the range was set from outside).</summary>
+    private void Unsaid()
+    {
+        _saidValue = _saidShort = _saidMin = _saidMax = _saidAverage = _saidRange = null;
+        _saidShare = double.NaN;
     }
 
     /// <summary>For a wireless device's battery: what it did in the last 10 minutes ("Steady"), see <see cref="DeviceCharge.Trend"/>.</summary>
@@ -225,6 +252,7 @@ public sealed partial class SensorItem : ObservableObject
     {
         Min = min;
         Max = max;
+        Unsaid();
         OnPropertyChanged(nameof(FormattedMin));
         OnPropertyChanged(nameof(FormattedMax));
         OnPropertyChanged(nameof(MinMaxText));
@@ -243,5 +271,9 @@ public sealed partial class SensorItem : ObservableObject
     }
 
     /// <summary>Re-evaluates every formatted string (e.g. after switching °C/°F).</summary>
-    public void RefreshFormatting() => OnPropertyChanged(string.Empty);
+    public void RefreshFormatting()
+    {
+        Unsaid();
+        OnPropertyChanged(string.Empty);
+    }
 }

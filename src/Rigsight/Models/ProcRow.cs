@@ -21,6 +21,9 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     [ObservableProperty] private double _cpu;
     [ObservableProperty] private double _memMB;
     [ObservableProperty] private bool _hasWindow;
+    /// <summary>Its kind (Games, Browsing…), the person's choice where they made one; null from an older agent, which
+    /// doesn't say (no tag then).</summary>
+    [ObservableProperty] private Core.Settings.AppCategory? _category;
     /// <summary>What its processes read and write, in bytes a second.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DiskCell))]
@@ -40,13 +43,20 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     private double _memShare;
     /// <summary>The bar (0–100): memory next to the biggest figure in the list (an app's memory or its usual), which fills it.</summary>
     [ObservableProperty] private double _bar;
-    /// <summary>Where its usual falls on the bar (0–100), for the mark there.</summary>
+    /// <summary>Where its usual falls on the bar (0–100), for the mark there: the middle of its spread.</summary>
     [ObservableProperty] private double _mark;
+    /// <summary>Where its usual's spread starts and ends on the bar (0–100), for the dashed band there (1.23.0).</summary>
+    [ObservableProperty] private double _markLow;
+    [ObservableProperty] private double _markHigh;
 
-    /// <summary>Its usual memory (MB), as the Memory page read it for every app; null with too little on record.</summary>
+    /// <summary>Its usual memory as one figure (MB), the middle of its spread, as the Memory page read it for every app; null with too little on record.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UsualText), nameof(HasUsual))]
     private double? _usualMB;
+    /// <summary>Its usual as a spread, the middle half of its days (see <see cref="MemoryUsual"/>); null where only one figure is known.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UsualText), nameof(UsualTip))]
+    private MemoryUsual? _usualSpread;
     /// <summary>Well above its usual (see <see cref="OverFactor"/>): its figure turns amber, its row is shaded and has its
     /// line (<see cref="OverLine"/>). Never a part of Windows, whose memory isn't the user's to act on.</summary>
     [ObservableProperty]
@@ -134,7 +144,10 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     /// <summary>How far above its usual an app pointed out has to stay to go on being pointed out (see <see cref="MemoryPast.StayOverFactor"/>).</summary>
     public const double StayOverFactor = MemoryPast.StayOverFactor;
     public bool HasUsual => UsualMB is not null;
-    public string UsualText => UsualMB is { } usual ? Units.Megabytes(usual) : Nothing;
+    /// <summary>"180 to 240 MB", the middle half of its days (1.23.0); one figure where only that is known.</summary>
+    public string UsualText => UsualMB is null ? Nothing : UsualSpread is { } spread ? spread.Text : Units.Megabytes(UsualMB.Value);
+    /// <summary>The usual's hover: how many days it comes from, so a usual from 3 days isn't read like one from 30.</summary>
+    public string? UsualTip => UsualSpread is { } s ? Lang.T($"From the {s.Days} days it ran in the {AppPast.UsualDays} before today") : null;
     public bool IsGrowing => GrowingSince is not null;
     /// <summary>
     /// The line under its name on the Memory page: since when it has grown, or else how many processes it is. A row
@@ -202,9 +215,12 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     public static string CpuCellOf(double cpu) => cpu < 0.05 ? Nothing : FormatCpu(cpu);
     public static string RateCell(double bytesPerSec) => bytesPerSec < 1024 ? Nothing : Units.Speed(bytesPerSec);
 
-    public void Update(ProcInfo p)
+    /// <param name="chosen">The kind the person picked for it, which wins over the agent's word until the agent has the
+    /// settings too (a list on its way when the kind was changed still carries the old one).</param>
+    public void Update(ProcInfo p, Core.Settings.AppCategory? chosen = null)
     {
         Name = p.Name;
+        Category = chosen ?? p.Category;
         if (Path != p.Path)
         {
             Path = p.Path;

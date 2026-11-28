@@ -118,6 +118,17 @@ public sealed partial class RigsightDb
         return map;
     }
 
+    /// <summary>
+    /// Every day each app ran from <paramref name="from"/> to <paramref name="to"/> (local midnights), with how long it ran
+    /// and its memory times those seconds (<see cref="AppCpuUse.MemMbAvg"/> is its day's average weighted by time); one
+    /// app's only with <paramref name="app"/>. The apps' usual memory (see <see cref="Reports.MemoryUsual"/>).
+    /// </summary>
+    public List<AppCpuUse> GetAppMemoryDays(long from, long to, long? app = null) => app is long one
+        ? ReadAppCpu("SELECT day, app, 0, 0, 0, 0, run_sec, mem_mbs FROM app_cpu_day WHERE app = $app AND day >= $from AND day < $to AND run_sec > 0",
+            ("$app", one), ("$from", from), ("$to", to))
+        : ReadAppCpu("SELECT day, app, 0, 0, 0, 0, run_sec, mem_mbs FROM app_cpu_day WHERE day >= $from AND day < $to AND app <> 0 AND run_sec > 0",
+            ("$from", from), ("$to", to));
+
     /// <summary>The first day with CPU time on record (local midnight); null before any.</summary>
     public long? FirstAppCpuDay()
     {

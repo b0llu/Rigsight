@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:vm="clr-namespace:Rigsight.ViewModels"
              xmlns:svc="clr-namespace:Rigsight.Services"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <UserControl.Resources>
@@ -39,6 +40,29 @@
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="16,0" />
             <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
+        </Style>
+        <!-- A quiet line that opens something (the foot of the library, 1.23.0): muted, its text lit under the pointer. -->
+        <Style x:Key="QuietLink" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" Padding="2,3" CornerRadius="{x:Static ctl:Corner.Tag}">
+                            <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <!-- A label over the banner. -->
         <!-- A figure over the banner: plain text on the banner's own dark fade, spaced apart. A see-through bubble behind
@@ -211,6 +235,30 @@
                             <TextBlock Text="{ctl:T 'No games yet. A game shows here once a launcher lists it as installed or RigSight sees it played.'}"
                                        Style="{StaticResource Muted}" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}" />
 
+                            <!-- A game marked "Not a game" just left (1.23.0, approved mock-up board "Not a game"): said here, with Undo,
+                                 no pop-up asked first. -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Tile}" Padding="14,10" Margin="0,0,0,16"
+                                    Visibility="{Binding HasLeft, Converter={StaticResource Vis}}">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Undo'}" Command="{Binding UndoNotAGameCommand}" Height="32" Padding="14,0" VerticalAlignment="Center" />
+                                    <HeaderedContentControl Style="{StaticResource IconRow}" Padding="12,0,12,0">
+                                        <HeaderedContentControl.Header>
+                                            <Border Style="{StaticResource IconBox}" Width="34" Height="34">
+                                                <Grid>
+                                                    <Image Source="{Binding Left.Icon}" Width="22" Height="22" RenderOptions.BitmapScalingMode="HighQuality" Visibility="{Binding Left.HasIcon, Converter={StaticResource Vis}}" />
+                                                    <TextBlock Text="{Binding Left.Letter}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Visibility="{Binding Left.HasIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                                </Grid>
+                                            </Border>
+                                        </HeaderedContentControl.Header>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Left.Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Left.Sub}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </HeaderedContentControl>
+                                </DockPanel>
+                            </Border>
+
                             <!-- Two full rows of covers and half of the third; the rest scrolls inside, so the shelf below stays in sight. -->
                             <Grid>
                                 <ScrollViewer x:Name="LibraryBox" Style="{StaticResource CardScroll}" ctl:WheelChain.Enabled="True">
@@ -291,6 +339,49 @@
                                 <!-- Over the box, which keeps its height while searching: nothing under it moves. -->
                                 <TextBlock VerticalAlignment="Top" Margin="0,4,0,0" Text="{ctl:T 'Nothing matches'}" Style="{StaticResource Muted}" Visibility="{Binding NoMatch, Converter={StaticResource Vis}}" />
                             </Grid>
+
+                            <!-- At the foot of the library (1.23.0): what was marked not a game, a quiet line that opens the list to put them back. -->
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0" Visibility="{Binding HasNotGames, Converter={StaticResource Vis}}">
+                                <Button x:Name="NotGamesButton" Style="{StaticResource QuietLink}" Click="NotGames_Click" AutomationProperties.Name="{Binding NotGamesLine}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding NotGamesLine}" FontSize="{x:Static ctl:TextSize.Small}" />
+                                        <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Popup x:Name="NotGamesMenu" PlacementTarget="{Binding ElementName=NotGamesButton}" Placement="Bottom" VerticalOffset="6" StaysOpen="False"
+                                       AllowsTransparency="True" PopupAnimation="Fade">
+                                    <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                            CornerRadius="{x:Static ctl:Corner.Tile}" Padding="6" Width="340" Margin="0,0,8,8">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                                        </Border.Effect>
+                                        <ScrollViewer Style="{StaticResource CardScroll}" MaxHeight="260">
+                                            <ItemsControl ItemsSource="{Binding NotGames}" Focusable="False">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel Margin="6,5">
+                                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Put back'}" Height="30" Padding="12,0" Margin="10,0,0,0"
+                                                                    Command="{Binding DataContext.PutBackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                                            <HeaderedContentControl Style="{StaticResource IconRow}" Padding="10,0,0,0">
+                                                                <HeaderedContentControl.Header>
+                                                                    <Border Style="{StaticResource IconBox}">
+                                                                        <Grid>
+                                                                            <Image Source="{Binding Icon}" Width="20" Height="20" RenderOptions.BitmapScalingMode="HighQuality" Visibility="{Binding HasIcon, Converter={StaticResource Vis}}" />
+                                                                            <TextBlock Text="{Binding Letter}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                       Visibility="{Binding HasIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </HeaderedContentControl.Header>
+                                                                <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
+                                                            </HeaderedContentControl>
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </StackPanel>
 
                             <!-- Installed games not played lately: what's sitting there taking space. -->
                             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,22,0,0" Padding="18,16" Visibility="{Binding HasShelf, Converter={StaticResource Vis}}">
@@ -433,6 +524,11 @@
                                         Visibility="{Binding GameInstalled, Converter={StaticResource Vis}}" IsEnabled="{Binding OpenedNotRunning}">
                                     <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" />
                                 </Button>
+                                <!-- More (1.23.0, approved mock-up): Not a game, and the game's folder. -->
+                                <Button Style="{StaticResource HeroButton}" Click="GameMore_Click" Width="40" Height="40" Padding="0" Margin="10,0,0,0"
+                                        ToolTip="{ctl:T 'More options'}" AutomationProperties.Name="{ctl:T 'More options'}">
+                                    <TextBlock Text="&#xE712;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" />
+                                </Button>
                             </StackPanel>
                         </Grid>
                     </Grid>
@@ -552,15 +648,7 @@
                                     <Grid Grid.Column="1" Margin="20,0,0,0">
                                         <ctl:RunsChart x:Name="Runs" Points="{Binding RunsPoints}" Marks="{Binding RunsMarks}" From="{Binding RunsFrom}" To="{Binding RunsTo}"
                                                        Minutes="{Binding PlayMinutes}" Stutters="{Binding PlayStutters}" PlayStart="{Binding PlayStart}" ShowPlay="{Binding FramesView}"
-                                                       Slots="{Binding RunsSlots}" />
-                                        <!-- In a play, when its stutters bunched up and why: in the chart's empty top strip, where the update
-                                             flags are on the plays, from where the lines start. No row of its own, so nothing moves. -->
-                                        <DockPanel VerticalAlignment="Top" Margin="44,2,14,0" IsHitTestVisible="False"
-                                                   Visibility="{Binding HasStutterWhy, Converter={StaticResource Vis}}">
-                                            <ctl:InkCentered DockPanel.Dock="Left" Text="&#xE7BA;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S13}" Width="13" Height="18" Fill="{DynamicResource WarmBrush}" Margin="0,0,8,0" />
-                                            <TextBlock Text="{Binding StutterWhy}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"
-                                                       VerticalAlignment="Center" ToolTip="{Binding StutterWhy}" />
-                                        </DockPanel>
+                                                       Slots="{Binding RunsSlots}" Stretches="{Binding ChartStretches}" />
                                     </Grid>
                                 </Grid>
                                 <!-- The key, under the chart from where it starts: the play's own items only where they mean something. -->
@@ -598,6 +686,267 @@
                                     </StackPanel>
                                 </WrapPanel>
                                 </DockPanel>
+                                <!-- Where it stuttered (1.23.0, approved mock-ups "2 + 1 · Games" and "1 · Games, each stutter in a stretch"): an
+                                     opened play's stutters by stretch, each with what was seen around them as counts, never a cause. Under the
+                                     chart, across the card, since an opened stretch lists each stutter on a line of its own (when, its frame
+                                     against the usual one, the readings around it). A click on a line opens it to its stutters, and lights a
+                                     stretch on the chart; the stutters themselves open nothing, so they have no hover shade. -->
+                                <StackPanel Margin="0,24,0,0" Visibility="{Binding ShowStretches, Converter={StaticResource Vis}}">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding StretchGrain}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}"
+                                                   VerticalAlignment="Center" Margin="12,0,0,0" />
+                                        <TextBlock Text="{ctl:T 'Where it stuttered'}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding StutterWhy}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,4,0,6" />
+                                    <!-- A play from before the seconds around each stutter were kept: said once, before the stretches, as a quiet line
+                                         (not a box at the foot, which read as an error). -->
+                                    <TextBlock Text="{Binding StretchNote}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Margin="0,-2,0,8"
+                                               Visibility="{Binding HasStretchNote, Converter={StaticResource Vis}}" />
+                                    <ItemsControl ItemsSource="{Binding StretchRows}" Focusable="False" Margin="-10,0,-10,0" AutomationProperties.Name="{ctl:T 'Where it stuttered'}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <!-- One quiet line per stretch, across the card (the approved mock-up, and ChatGPT's review of the first build
+                                                         on 2026-11-28): no coloured rail, no shade at rest (only on hover, it opens), the count right after the
+                                                         time, what was seen as plain lines under it. -->
+                                                    <Button Command="{Binding DataContext.PickStretchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                                            AutomationProperties.Name="{Binding Title}" AutomationProperties.HelpText="{Binding CountText}" Cursor="Hand" Margin="0,0,0,2"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Button}" Padding="10,8">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="22" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <!-- Turns to point down while the line is open, as Storage's and the Timeline's opening rows. -->
+                                                                        <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                                                                                   HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,5,0,0" RenderTransformOrigin="0.5,0.5">
+                                                                            <TextBlock.RenderTransform>
+                                                                                <RotateTransform />
+                                                                            </TextBlock.RenderTransform>
+                                                                        </TextBlock>
+                                                                        <StackPanel Grid.Column="1">
+                                                                            <TextBlock FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap"><Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Into, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" /><Run Text=" · " Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding CountText, Mode=OneWay}" FontWeight="SemiBold" /></TextBlock>
+                                                                            <ItemsControl ItemsSource="{Binding Seen}" Focusable="False" Margin="0,2,0,0">
+                                                                                <ItemsControl.ItemTemplate>
+                                                                                    <DataTemplate>
+                                                                                        <TextBlock ctl:Bolds.Text="{Binding Text}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                                                    </DataTemplate>
+                                                                                </ItemsControl.ItemTemplate>
+                                                                            </ItemsControl>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                                    </Trigger>
+                                                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                                    </Trigger>
+                                                                    <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                                                        <DataTrigger.EnterActions>
+                                                                            <BeginStoryboard>
+                                                                                <Storyboard>
+                                                                                    <DoubleAnimation Storyboard.TargetName="Chevron" Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)" To="90"
+                                                                                                     Duration="{StaticResource MotionFast}" />
+                                                                                </Storyboard>
+                                                                            </BeginStoryboard>
+                                                                        </DataTrigger.EnterActions>
+                                                                        <DataTrigger.ExitActions>
+                                                                            <BeginStoryboard>
+                                                                                <Storyboard>
+                                                                                    <DoubleAnimation Storyboard.TargetName="Chevron" Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)" To="0"
+                                                                                                     Duration="{StaticResource MotionFast}" />
+                                                                                </Storyboard>
+                                                                            </BeginStoryboard>
+                                                                        </DataTrigger.ExitActions>
+                                                                    </DataTrigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+                                                    <!-- The line opened (approved mock-up "1b · An opened stretch, round 2"): a panel from the card's left edge,
+                                                         not indented under the title. A strip of its stutters over its own minutes (hover one for what stood
+                                                         out around it, click to find it in the list), then the stutters, the longest first: full rows on a
+                                                         play read around each, short rows three across on one read by the minute, 8 or 9 and then the rest on
+                                                         a click. A long list scrolls in its own box; only the rows in view are built. The rows open nothing,
+                                                         so they have no hover shade; the one picked on the strip has a soft outline. -->
+                                                    <Border Margin="10,2,10,10" Padding="16,14,16,12" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}"
+                                                            Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
+                                                        <StackPanel>
+                                                            <DockPanel Margin="0,0,0,6">
+                                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Strip.Caption, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
+                                                                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                                                                <TextBlock Text="{Binding StripTitle}" Style="{StaticResource Caption}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                            </DockPanel>
+                                                            <!-- Above the list (its hover reaches over it). -->
+                                                            <ctl:StretchStripChart Height="120" Panel.ZIndex="1" Strip="{Binding Strip, Mode=OneWay}" Tip="{Binding StripTip, Mode=OneWay}" Picked="{Binding StripPicked, Mode=OneWay}"
+                                                                                   PickCommand="{Binding PickStutterCommand}" List="{Binding ElementName=StutterList}" PerRow="{Binding PerRow, Mode=OneWay}"
+                                                                                   AutomationProperties.Name="{Binding StripTitle}" AutomationProperties.HelpText="{Binding Strip.Caption, Mode=OneWay}" />
+                                                            <TextBlock Text="{ctl:T 'LONGEST FIRST'}" Style="{StaticResource Caption}" Margin="0,14,0,6" />
+                                                            <Grid Margin="8,2,8,4" Visibility="{Binding HasAround, Converter={StaticResource Vis}}">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="150" />
+                                                                    <ColumnDefinition Width="136" />
+                                                                    <ColumnDefinition Width="186" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{ctl:T 'WHEN'}" Style="{StaticResource Caption}" />
+                                                                <TextBlock Grid.Column="1" Text="{ctl:T 'FRAME'}" Style="{StaticResource Caption}" Margin="16,0,0,0" />
+                                                                <TextBlock Grid.Column="3" Text="{ctl:T 'AROUND IT'}" Style="{StaticResource Caption}" Margin="16,0,0,0" />
+                                                            </Grid>
+                                                            <ItemsControl x:Name="StutterList" ItemsSource="{Binding Rows}" Focusable="False" MaxHeight="420" AutomationProperties.Name="{ctl:T 'Stutters'}"
+                                                                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel"
+                                                                          ScrollViewer.CanContentScroll="True">
+                                                                <ItemsControl.Resources>
+                                                                    <!-- A frame's time as a bar on the strip's scale, its own usual frame as a thin tick. -->
+                                                                    <DataTemplate x:Key="StutterBar" DataType="{x:Type vm:StutterLine}">
+                                                                        <Grid Height="12" VerticalAlignment="Center">
+                                                                            <Border Height="6" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource StrokeBrush}" VerticalAlignment="Center" />
+                                                                            <Grid>
+                                                                                <Grid.ColumnDefinitions>
+                                                                                    <ColumnDefinition Width="{Binding Fill}" />
+                                                                                    <ColumnDefinition Width="{Binding Empty}" />
+                                                                                </Grid.ColumnDefinitions>
+                                                                                <Border Height="6" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource WarmBrush}" VerticalAlignment="Center" />
+                                                                            </Grid>
+                                                                            <Grid>
+                                                                                <Grid.ColumnDefinitions>
+                                                                                    <ColumnDefinition Width="{Binding TickAt}" />
+                                                                                    <ColumnDefinition Width="{Binding TickAfter}" />
+                                                                                </Grid.ColumnDefinitions>
+                                                                                <Border Grid.Column="1" Width="1.5" HorizontalAlignment="Left" Margin="-0.75,0,0,0" Background="{DynamicResource MutedBrush}" />
+                                                                            </Grid>
+                                                                        </Grid>
+                                                                    </DataTemplate>
+                                                                    <!-- The soft outline of the stutter picked on the strip. -->
+                                                                    <Style x:Key="PickedStutter" TargetType="Border">
+                                                                        <Setter Property="BorderThickness" Value="1.5" />
+                                                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                                                        <Setter Property="CornerRadius" Value="{x:Static ctl:Corner.Field}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsPicked}" Value="True">
+                                                                                <Setter Property="BorderBrush" Value="{DynamicResource FaintBrush}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                    <!-- A short row (a play read by the minute): the frame and its time, the bar, its usual. -->
+                                                                    <DataTemplate x:Key="ShortStutter" DataType="{x:Type vm:StutterLine}">
+                                                                        <Border Style="{StaticResource PickedStutter}" Padding="6.5">
+                                                                            <StackPanel>
+                                                                                <DockPanel>
+                                                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding TimeInto}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}"
+                                                                                               VerticalAlignment="Bottom" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
+                                                                                    <TextBlock Text="{Binding Frame}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                                                </DockPanel>
+                                                                                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource StutterBar}" Margin="0,2,0,0" />
+                                                                                <TextBlock Text="{Binding Usual}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
+                                                                            </StackPanel>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                    <!-- A full row (a play read around each stutter): when, its frame, the bar, what stood out around it. -->
+                                                                    <DataTemplate DataType="{x:Type vm:StutterLine}">
+                                                                        <Border Style="{StaticResource PickedStutter}" Padding="6.5,5.5">
+                                                                            <Grid>
+                                                                                <Grid.ColumnDefinitions>
+                                                                                    <ColumnDefinition Width="150" />
+                                                                                    <ColumnDefinition Width="136" />
+                                                                                    <ColumnDefinition Width="186" />
+                                                                                    <ColumnDefinition Width="*" />
+                                                                                </Grid.ColumnDefinitions>
+                                                                                <StackPanel VerticalAlignment="Center">
+                                                                                    <TextBlock Text="{Binding Time}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource TextBrush}" />
+                                                                                    <TextBlock Text="{Binding Into}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" />
+                                                                                </StackPanel>
+                                                                                <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                                                                    <TextBlock Text="{Binding Frame}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                                                    <TextBlock Text="{Binding Usual}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" />
+                                                                                </StackPanel>
+                                                                                <ContentPresenter Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource StutterBar}" />
+                                                                                <!-- Around it: only the readings that stood out for this one stutter. -->
+                                                                                <WrapPanel Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center">
+                                                                                    <ItemsControl ItemsSource="{Binding Chips}" Focusable="False">
+                                                                                        <ItemsControl.ItemsPanel>
+                                                                                            <ItemsPanelTemplate>
+                                                                                                <WrapPanel />
+                                                                                            </ItemsPanelTemplate>
+                                                                                        </ItemsControl.ItemsPanel>
+                                                                                        <ItemsControl.ItemTemplate>
+                                                                                            <DataTemplate>
+                                                                                                <Border Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Chip}" Padding="8,3" Margin="0,2,6,2">
+                                                                                                    <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"><Run Text="{Binding Label, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding Value, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /></TextBlock>
+                                                                                                </Border>
+                                                                                            </DataTemplate>
+                                                                                        </ItemsControl.ItemTemplate>
+                                                                                    </ItemsControl>
+                                                                                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Chip}" Padding="8,3" Margin="0,2,6,2"
+                                                                                            Visibility="{Binding HasNote, Converter={StaticResource Vis}}">
+                                                                                        <TextBlock Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                                                                    </Border>
+                                                                                </WrapPanel>
+                                                                            </Grid>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                    <!-- Three short rows across (the mock-up's three columns), one virtualised row of the list. -->
+                                                                    <DataTemplate DataType="{x:Type vm:StutterTriple}">
+                                                                        <Grid Margin="0,2">
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="*" />
+                                                                                <ColumnDefinition Width="22" />
+                                                                                <ColumnDefinition Width="*" />
+                                                                                <ColumnDefinition Width="22" />
+                                                                                <ColumnDefinition Width="*" />
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <ContentPresenter Content="{Binding A}" ContentTemplate="{StaticResource ShortStutter}" />
+                                                                            <ContentPresenter Grid.Column="2" Content="{Binding B}" ContentTemplate="{StaticResource ShortStutter}" />
+                                                                            <ContentPresenter Grid.Column="4" Content="{Binding C}" ContentTemplate="{StaticResource ShortStutter}" />
+                                                                        </Grid>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.Resources>
+                                                                <ItemsControl.Template>
+                                                                    <ControlTemplate TargetType="ItemsControl">
+                                                                        <ScrollViewer Style="{StaticResource CardScroll}" Padding="0" CanContentScroll="True">
+                                                                            <ItemsPresenter />
+                                                                        </ScrollViewer>
+                                                                    </ControlTemplate>
+                                                                </ItemsControl.Template>
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <VirtualizingStackPanel />
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                            </ItemsControl>
+                                                            <!-- "And 9 more, 30 to 64 ms": opens the rest in the same list. -->
+                                                            <Button Command="{Binding ShowRestCommand}" Cursor="Hand" HorizontalAlignment="Left" Margin="-2,4,0,0" AutomationProperties.Name="{Binding MoreText}"
+                                                                    Visibility="{Binding HasMore, Converter={StaticResource Vis}}">
+                                                                <Button.Template>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="10,6">
+                                                                            <TextBlock Text="{Binding MoreText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" />
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                                            </Trigger>
+                                                                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Button.Template>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{Binding DevicesNote}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                               Visibility="{Binding HasDevicesNote, Converter={StaticResource Vis}}" />
+                                </StackPanel>
                                 <StackPanel Visibility="{Binding HasFps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                     <TextBlock Text="{Binding FpsEmpty}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
                                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">

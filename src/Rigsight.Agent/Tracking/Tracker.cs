@@ -206,6 +206,8 @@ internal sealed partial class Tracker(RigsightDb db, AppResolver apps, Func<Date
     private List<CloseUpFan>? _ringFans;
     private List<CloseUpApp>? _ringApps;
     private double? _ringDisk;
+    // The app in front's own disk use at the last sample (1.23.0: a game's own reads around its stutters).
+    private double? _ringFrontDisk;
 
     // Internet use, by app (see NetTracker): which app each process is, and the bookkeeping.
     private readonly NetApps _netApps = new(apps);
@@ -453,8 +455,12 @@ internal sealed partial class Tracker(RigsightDb db, AppResolver apps, Func<Date
             SessionActiveSec = session?.ActiveSec ?? 0,
             SessionCpuMax = session?.CpuMax,
             SessionGpuMax = session?.GpuMax,
+            VramMb = _vramByExe?.TryGetValue(app.Exe, out var vram) == true ? Math.Round(vram) : null,
         };
     }
+
+    /// <summary>Each app's own GPU memory at the last process sample (MB), by exe; null before the first.</summary>
+    private Dictionary<string, double>? _vramByExe;
 
     public void OnSensors(KeyValues k)
     {
@@ -551,7 +557,7 @@ internal sealed partial class Tracker(RigsightDb db, AppResolver apps, Func<Date
             Ram = R(k.RamUsed, 2), Commit = R(k.CommitPct, 0), Vram = R(k.GpuVramUsed, 0), VramTotal = R(k.GpuVramTotal, 0),
             Disk = R(_ringDisk, 0), Down = netNow ? Math.Round(net.Down) : null, Up = netNow ? Math.Round(net.Up) : null,
             Battery = k.Battery, OnBattery = k.OnBattery,
-            Front = _foreground?.Id, Here = _present,
+            Front = _foreground?.Id, Here = _present, FrontDisk = R(_ringFrontDisk, 0),
             Fans = _ringFans, Apps = _ringApps,
         });
     }
@@ -568,6 +574,7 @@ internal sealed partial class Tracker(RigsightDb db, AppResolver apps, Func<Date
     private void RingApps(ProcessSnapshot snapshot)
     {
         _ringDisk = snapshot.Disk;
+        _ringFrontDisk = _foreground is { } front && snapshot.Apps.TryGetValue(front.Exe, out var fu) ? fu.Disk : null;
         var all = snapshot.Apps.Values.Where(u => Nameable(u.Exe))
             .Select(u => (Usage: u, Gpu: snapshot.Gpu.GetValueOrDefault(u.Exe))).ToList();
         var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -659,6 +666,8 @@ internal sealed partial class Tracker(RigsightDb db, AppResolver apps, Func<Date
 
         FindVrGame(snapshot);
         _netApps.Prune(snapshot.PidToExe);
+        // The app in front's own GPU memory for the GPU page (1.23.0): this sample's map, kept until the next (no copy).
+        _vramByExe = snapshot.GpuMemMb;
         if (Paused) return;
         RecordLoad(snapshot);
         RecordMinute(snapshot);

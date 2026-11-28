@@ -252,29 +252,206 @@
             </Grid>
         </DataTemplate>
 
-        <!-- A line of "What reads and writes": its reads and writes as one bar in two colours, the figure beside it. -->
+        <!-- An opened line of "What reads and writes" (1.23.0 mock-up): a lighter box under it, a line per drive, busiest first,
+             with its letter in a chip (a drive icon for a drive with no letter now), its name ("Local Disk"), the same bar in two
+             tones sized against the app's own total, and its total, read and written under the line's own. Nothing here is
+             clicked: no shade. -->
+        <DataTemplate x:Key="DiskUseSplit">
+            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Margin="42,2,0,8" Padding="8,4,0,4">
+                <ItemsControl ItemsSource="{Binding Split}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Height="36">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="44" />
+                                    <ColumnDefinition Width="1.2*" MinWidth="70" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="76" />
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="80" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="30" Height="24" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource SurfaceBrush}" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <Grid>
+                                        <TextBlock x:Name="Letter" Text="{Binding Chip}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="NoLetter" Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ctl:SplitBar Grid.Column="2" Height="8" Margin="0,0,8,0" VerticalAlignment="Center" First="{Binding ReadShare}" Second="{Binding WriteShare}"
+                                              FirstBrush="{DynamicResource SkyBrush}" SecondBrush="{DynamicResource PinkBrush}" Track="{DynamicResource SurfaceBrush}" />
+                                <TextBlock Grid.Column="3" Text="{Binding Total}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                <TextBlock Grid.Column="4" Text="{Binding Read}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                <TextBlock Grid.Column="5" Text="{Binding Written}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                            </Grid>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding HasLetter}" Value="False">
+                                    <Setter TargetName="Letter" Property="Visibility" Value="Collapsed" />
+                                    <Setter TargetName="NoLetter" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </DataTemplate>
+
+        <!-- A line of "What reads and writes" (1.23.0 mock-up, Storage): the app's icon and name with its drives under it,
+             busiest first ("E:, C: and F:"), its read (blue) and written (pink) as one bar sized against the line with the
+             most, then its total, read and written. A line on more than one drive has the chevron and opens in place to a
+             line per drive; a line on one drive (and every line of an opened drive's list) does nothing, so it has no hover
+             shade and no hand (a disabled row button: the page's rule, a shade only where a click does something). -->
         <DataTemplate x:Key="DiskUseLineTemplate">
-            <Grid Height="38" Background="Transparent" ToolTip="{Binding ToolTip}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="170" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="120" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsWindows}" Value="True"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /></DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-                <!-- Read then written as one bar, rounded only at its ends (see SplitBar). -->
-                <ctl:SplitBar Grid.Column="1" Height="8" Margin="12,0" VerticalAlignment="Center" First="{Binding ReadShare}" Second="{Binding WriteShare}"
-                              FirstBrush="{DynamicResource PurpleBrush}" SecondBrush="{DynamicResource PinkBrush}" Track="{DynamicResource Surface2Brush}" />
-                <TextBlock Grid.Column="2" Text="{Binding Figure}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-            </Grid>
+            <StackPanel>
+                <Button Style="{StaticResource FlatRowButton}" IsEnabled="{Binding CanOpen}" AutomationProperties.Name="{Binding Name}"
+                        Command="{Binding DataContext.ToggleDiskUseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                    <Grid Height="44">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="18" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="1.3*" MinWidth="90" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="76" />
+                            <ColumnDefinition Width="70" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" Foreground="{DynamicResource MutedBrush}"
+                                   HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0,0,0" Visibility="Hidden" />
+                        <Image x:Name="AppIcon" Grid.Column="1" Source="{Binding Path, Converter={StaticResource ExeIcon}}" Width="22" Height="22" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                        <Border x:Name="WindowsIcon" Grid.Column="1" Width="22" Height="22" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Visibility="Collapsed">
+                            <TextBlock Text="&#xE770;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,0,8,0">
+                            <TextBlock x:Name="AppName" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Caption}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"
+                                       Visibility="{Binding HasCaption, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                        <!-- Read then written as one bar, rounded only at its ends (see SplitBar). -->
+                        <ctl:SplitBar Grid.Column="3" Height="8" Margin="0,0,8,0" VerticalAlignment="Center" First="{Binding ReadShare}" Second="{Binding WriteShare}"
+                                      FirstBrush="{DynamicResource SkyBrush}" SecondBrush="{DynamicResource PinkBrush}" Track="{DynamicResource Surface2Brush}" />
+                        <TextBlock Grid.Column="4" Text="{Binding Total}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                        <TextBlock Grid.Column="5" Text="{Binding Read}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                        <TextBlock Grid.Column="6" Text="{Binding Written}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                    </Grid>
+                </Button>
+                <!-- Nothing until the line is opened: then its split by drive is built (see DiskUseSplit), so the closed lines stay light. -->
+                <ContentControl x:Name="Under" Focusable="False" />
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding CanOpen}" Value="True">
+                    <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                    <Setter TargetName="Chevron" Property="Text" Value="&#xE70D;" />
+                    <Setter TargetName="Under" Property="ContentTemplate" Value="{StaticResource DiskUseSplit}" />
+                    <Setter TargetName="Under" Property="Content" Value="{Binding}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Path}" Value="{x:Null}">
+                    <Setter TargetName="AppIcon" Property="Source" Value="{x:Static svc:IconCache.Program}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsWindows}" Value="True">
+                    <Setter TargetName="AppIcon" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="WindowsIcon" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="AppName" Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- A column heading of "What reads and writes": a button that sorts the list by it. Its arrow shows on the column
+             sorted by, and on the others under the pointer only (as Processes' headings). -->
+        <Style x:Key="DiskSortHead" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+            <Setter Property="Command" Value="{Binding DataContext.SortDiskUseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+            <Setter Property="CommandParameter" Value="{Binding Key}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding SortName}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Label}" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" />
+                            <TextBlock x:Name="Arrow" Text="{Binding Arrow}" FontSize="{x:Static ctl:TextSize.Label}" Margin="4,0,0,0" Foreground="{DynamicResource FaintBrush}" Opacity="0" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter TargetName="Arrow" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter TargetName="Arrow" Property="Opacity" Value="1" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter TargetName="Arrow" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- "What reads and writes" under its title: the headings (with the bar's two colours) over every app, in a box that
+             scrolls about seven lines high, its last line cut through so the scroll shows; the spinner until it's read. The
+             same on the page-wide card and an opened drive's. -->
+        <DataTemplate x:Key="DiskUseList">
+            <StackPanel>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="24" />
+                        <ColumnDefinition Width="1.3*" MinWidth="90" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="76" />
+                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="80" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="2" Text="{ctl:T APP}" Style="{StaticResource Caps}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse Width="8" Height="8" Fill="{DynamicResource SkyBrush}" VerticalAlignment="Center" Margin="0,0,5,0" />
+                        <TextBlock Text="{ctl:T Read}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" />
+                        <Ellipse Width="8" Height="8" Fill="{DynamicResource PinkBrush}" VerticalAlignment="Center" Margin="0,0,5,0" />
+                        <TextBlock Text="{ctl:T Written}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" />
+                    </StackPanel>
+                    <Button Grid.Column="4" Style="{StaticResource DiskSortHead}" DataContext="{Binding DiskTotalHeading}" />
+                    <Button Grid.Column="5" Style="{StaticResource DiskSortHead}" DataContext="{Binding DiskReadHeading}" />
+                    <Button Grid.Column="6" Style="{StaticResource DiskSortHead}" DataContext="{Binding DiskWrittenHeading}" />
+                </Grid>
+                <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,30"
+                             Visibility="{Binding DiskUseLoading, Converter={StaticResource Vis}}" />
+                <!-- Only the lines in view are built (a month can have a couple of hundred apps); all of them are one kind, so
+                     lines are recycled as it scrolls. -->
+                <!-- A small buffer (4 lines each way, not a whole box): every line built costs the switch to Storage (1.23.0 gate). -->
+                <ItemsControl ItemsSource="{Binding DiskUse}" ItemTemplate="{StaticResource DiskUseLineTemplate}" Focusable="False" MaxHeight="285"
+                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel"
+                              VirtualizingPanel.CacheLengthUnit="Item" VirtualizingPanel.CacheLength="4,4"
+                              ScrollViewer.CanContentScroll="True">
+                    <ItemsControl.Template>
+                        <ControlTemplate TargetType="ItemsControl">
+                            <ScrollViewer Style="{StaticResource CardScroll}" CanContentScroll="True">
+                                <ItemsPresenter />
+                            </ScrollViewer>
+                        </ControlTemplate>
+                    </ItemsControl.Template>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <TextBlock Text="{ctl:T 'Not recorded'}" Style="{StaticResource Muted}" Margin="0,8,0,0" Visibility="{Binding DiskUseEmpty, Converter={StaticResource Vis}}" />
+                <TextBlock Text="{ctl:T 'No apps match'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,20,0,12"
+                           Visibility="{Binding DiskUseNoneMatch, Converter={StaticResource Vis}}" />
+            </StackPanel>
         </DataTemplate>
 
         <!-- A line of Every reading in plain words (approved mock-up 2026-11-14): its icon in a coloured square, its name and a grey
@@ -338,13 +515,15 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- The Day, Week and Month switch over "What reads and writes". -->
+        <!-- The Day, Week and Month switch over "What reads and writes", and Custom (1.23.0): the same day calendar as the other
+             pages, floating under the switch (see UseCustom_Click); picked once its days are. -->
         <DataTemplate x:Key="UsePeriodSwitch">
             <Border Style="{StaticResource SegmentHost}">
                 <StackPanel Orientation="Horizontal">
                     <Button Style="{StaticResource Tab}" Content="{ctl:T Day}" Tag="{Binding UseDay}" Command="{Binding PickUsePeriodCommand}" CommandParameter="Day" />
                     <Button Style="{StaticResource Tab}" Content="{ctl:T Week}" Tag="{Binding UseWeek}" Command="{Binding PickUsePeriodCommand}" CommandParameter="Week" />
                     <Button Style="{StaticResource Tab}" Content="{ctl:T Month}" Tag="{Binding UseMonth}" Command="{Binding PickUsePeriodCommand}" CommandParameter="Month" />
+                    <Button Style="{StaticResource Tab}" Content="{ctl:T Custom}" Tag="{Binding UseCustom}" Click="UseCustom_Click" AutomationProperties.Name="{ctl:T 'Custom period'}" />
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -352,6 +531,20 @@
 
     <ScrollViewer x:Name="Page" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <Grid Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
+            <!-- Custom over "What reads and writes" (1.23.0): the shared day calendar, as on Processes' opened app; it floats
+                 under the switch that opened it (the page-wide card's or an opened drive's), its right edge on the switch's. -->
+            <Popup x:Name="UseRangePopup" Placement="Custom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                <ctl:SmoothBorder Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                  CornerRadius="{x:Static ctl:Corner.Tile}" Padding="10" Margin="0,0,8,8">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <Calendar x:Name="UseCal" SelectionMode="SingleRange" FirstDayOfWeek="Monday" AutomationProperties.Name="{ctl:T 'Days to show'}" />
+                        <TextBlock x:Name="UseRangeHint" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="8,2,8,4" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+            </Popup>
 
             <!-- ═══ The overview: the drives that need a look, every drive with its letters, what reads and writes, what could be freed ═══ -->
             <StackPanel Visibility="{Binding IsDriveOpen, Converter={StaticResource Vis}, ConverterParameter=Invert}">
@@ -429,18 +622,20 @@
                     </Grid.ColumnDefinitions>
                     <ctl:SmoothBorder Style="{StaticResource Card}">
                         <StackPanel>
+                            <!-- The title and the period on one line; under them a search box as Processes' and the count of apps in the
+                                 period whatever is searched. All on one line, the card (it shares its row with Space you could free) cut
+                                 the title and left the search box two letters wide (seen 2026-11-28). -->
                             <DockPanel Margin="0,0,0,10">
-                                <ContentPresenter DockPanel.Dock="Right" Content="{Binding}" ContentTemplate="{StaticResource UsePeriodSwitch}" VerticalAlignment="Center" />
-                                <TextBlock Text="{ctl:T 'What reads and writes the most'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                                <ContentPresenter DockPanel.Dock="Right" Content="{Binding}" ContentTemplate="{StaticResource UsePeriodSwitch}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <TextBlock Text="{ctl:T 'What reads and writes the most'}" Style="{StaticResource H2}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             </DockPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource PurpleBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBlock Text="{ctl:T Read}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,16,0" />
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource PinkBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBlock Text="{ctl:T Written}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
-                            </StackPanel>
-                            <ItemsControl ItemsSource="{Binding DiskUse}" ItemTemplate="{StaticResource DiskUseLineTemplate}" Focusable="False" />
-                            <TextBlock Text="{ctl:T 'Not recorded'}" Style="{StaticResource Muted}" Margin="0,8,0,0" Visibility="{Binding DiskUseEmpty, Converter={StaticResource Vis}}" />
+                            <DockPanel Margin="0,0,0,12">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding DiskUseCount}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                           VerticalAlignment="Center" Margin="14,0,0,0" />
+                                <TextBox Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Width="280" HorizontalAlignment="Left"
+                                         AutomationProperties.Name="{ctl:T 'Search the apps that read and write'}" ctl:Debounce.Text="{Binding DiskUseSearch}" />
+                            </DockPanel>
+                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource DiskUseList}" />
                         </StackPanel>
                     </ctl:SmoothBorder>
                     <!-- Until it's worked out the card holds only the spinner, in its middle: no "Not scanned yet" lines from a list
@@ -648,18 +843,23 @@
                             </Style>
                         </ctl:SmoothBorder.Style>
                         <StackPanel>
-                            <DockPanel Margin="0,0,0,10">
-                                <ContentPresenter DockPanel.Dock="Right" Content="{Binding}" ContentTemplate="{StaticResource UsePeriodSwitch}" VerticalAlignment="Center" />
-                                <TextBlock Text="{ctl:T 'What reads and writes it'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
-                            </DockPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource PurpleBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBlock Text="{ctl:T Read}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,16,0" />
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource PinkBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBlock Text="{ctl:T Written}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
-                            </StackPanel>
-                            <ItemsControl ItemsSource="{Binding DiskUse}" ItemTemplate="{StaticResource DiskUseLineTemplate}" Focusable="False" />
-                            <TextBlock Text="{ctl:T 'Not recorded'}" Style="{StaticResource Muted}" Margin="0,8,0,0" Visibility="{Binding DiskUseEmpty, Converter={StaticResource Vis}}" />
+                            <!-- The title, then a search box as Processes' (it gives room first, down to nothing more than it needs), the
+                                 count of apps in the period whatever is searched, and the period. -->
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3*" />
+                                    <ColumnDefinition Width="2*" MaxWidth="236" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{ctl:T 'What reads and writes it'}" Style="{StaticResource H2}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <TextBox Grid.Column="1" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Margin="16,-4,0,-4" VerticalAlignment="Center"
+                                         AutomationProperties.Name="{ctl:T 'Search the apps that read and write'}" ctl:Debounce.Text="{Binding DiskUseSearch}" />
+                                <TextBlock Grid.Column="2" Text="{Binding DiskUseCount}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                           VerticalAlignment="Center" Margin="12,0,14,0" />
+                                <ContentPresenter Grid.Column="3" Content="{Binding}" ContentTemplate="{StaticResource UsePeriodSwitch}" VerticalAlignment="Center" />
+                            </Grid>
+                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource DiskUseList}" />
                             <TextBlock Text="{Binding DiskUseNote}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" Visibility="{Binding DiskUseNote, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </ctl:SmoothBorder>

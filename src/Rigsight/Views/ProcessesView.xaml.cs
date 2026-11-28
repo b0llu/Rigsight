@@ -154,44 +154,51 @@ public partial class ProcessesView : UserControl
         if (placement == PlacementMode.Custom)
             menu.CustomPopupPlacementCallback = (popup, at, _) => [new CustomPopupPlacement(new Point(at.Width - popup.Width, at.Height + 4), PopupPrimaryAxis.Horizontal)];
 
-        foreach (var entry in entries)
-        {
-            switch (entry.Kind)
-            {
-                case ProcMenuKind.Separator:
-                    menu.Items.Add(new Separator());
-                    break;
-                case ProcMenuKind.Header:
-                    menu.Items.Add(new MenuItem { Header = entry.Text, IsEnabled = false });
-                    break;
-                case ProcMenuKind.Note:
-                    // Why the entry above it is off, in a few words that wrap.
-                    menu.Items.Add(new MenuItem
-                    {
-                        IsEnabled = false,
-                        Header = new TextBlock { Text = entry.Text, FontSize = Controls.TextSize.Label, TextWrapping = TextWrapping.Wrap, MaxWidth = 230 },
-                    });
-                    break;
-                default:
-                    // Every item has an icon, so their words line up (see the Apps page's menu).
-                    var icon = new TextBlock { Text = entry.Glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = Controls.IconSize.S14 };
-                    var item = new MenuItem { Header = entry.Text, Icon = icon, InputGestureText = entry.Hint ?? "", IsEnabled = entry.Enabled, FocusVisualStyle = null };
-                    if (entry.Ai) item.Icon = AiIcon();
-                    // Ending is set apart from the rest: after the line, and in the colour of a warning.
-                    if (entry.Danger && entry.Enabled)
-                    {
-                        item.SetResourceReference(ForegroundProperty, "HotBrush");
-                        icon.SetResourceReference(TextBlock.ForegroundProperty, "HotBrush");
-                    }
-                    if (entry.Run is { } run) item.Click += (_, _) => _ = run();
-                    menu.Items.Add(item);
-                    break;
-            }
-        }
+        foreach (var entry in entries) menu.Items.Add(Line(entry));
 
         menu.Opened += (_, _) => vm.SetMenuOpen(true);
         menu.Closed += (_, _) => vm.SetMenuOpen(false);
         menu.IsOpen = true;
+    }
+
+    /// <summary>One line of a menu the page built; a line with lines of its own opens them beside it (the kinds).</summary>
+    private static Control Line(ProcMenuEntry entry)
+    {
+        switch (entry.Kind)
+        {
+            case ProcMenuKind.Separator:
+                return new Separator();
+            case ProcMenuKind.Header:
+                return new MenuItem { Header = entry.Text, IsEnabled = false };
+            case ProcMenuKind.Note:
+                // Why the entry above it is off, in a few words that wrap.
+                return new MenuItem
+                {
+                    IsEnabled = false,
+                    Header = new TextBlock { Text = entry.Text, FontSize = Controls.TextSize.Label, TextWrapping = TextWrapping.Wrap, MaxWidth = 230 },
+                };
+        }
+        // One of a choice (a kind): ticked or not, as on the Apps page's Category menu.
+        if (entry.Checked is { } ticked)
+        {
+            var choice = new MenuItem { Header = entry.Text, IsCheckable = true, IsChecked = ticked, IsEnabled = entry.Enabled, FocusVisualStyle = null };
+            if (entry.Run is { } pick) choice.Click += (_, _) => _ = pick();
+            return choice;
+        }
+        // Every item has an icon, so their words line up (see the Apps page's menu).
+        var icon = new TextBlock { Text = entry.Glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = Controls.IconSize.S14 };
+        var item = new MenuItem { Header = entry.Text, Icon = icon, InputGestureText = entry.Hint ?? "", IsEnabled = entry.Enabled, FocusVisualStyle = null };
+        if (entry.Ai) item.Icon = AiIcon();
+        // Ending is set apart from the rest: after the line, and in the colour of a warning.
+        if (entry.Danger && entry.Enabled)
+        {
+            item.SetResourceReference(ForegroundProperty, "HotBrush");
+            icon.SetResourceReference(TextBlock.ForegroundProperty, "HotBrush");
+        }
+        if (entry.Items is { } lines)
+            foreach (var line in lines) item.Items.Add(Line(line));
+        else if (entry.Run is { } run) item.Click += (_, _) => _ = run();
+        return item;
     }
 
     /// <summary>The AI's sparkle, for an AI line of a menu (as on every AI button).</summary>

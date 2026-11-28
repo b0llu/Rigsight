@@ -86,7 +86,7 @@ internal sealed partial class Tracker
         _framesTalliedTs = _minuteTs;
         foreach (var (appId, frames) in m.Frames)
         {
-            db.WriteFrameMinute(_minuteTs, appId, frames.Spread, WithDrivers(frames.Stutters), FrameSource.RivaTuner);
+            db.WriteFrameMinute(_minuteTs, appId, frames.Spread, WithSnaps(appId, WithDrivers(frames.Stutters)), FrameSource.RivaTuner);
             if (tally && !frames.Spread.IsEmpty) Tally(appId).Add(FrameSource.RivaTuner, frames.Spread.Frames, both: m.OwnFrames.TryGetValue(appId, out var o) && !o.Spread.IsEmpty);
         }
         foreach (var (appId, own) in m.OwnFrames)
@@ -99,9 +99,23 @@ internal sealed partial class Tracker
             }
             if (own.Lost && tally)
                 Log.Write("frames", $"{Exe(appId)}, minute at {TimeUtil.FromUnix(_minuteTs):HH:mm}: Windows dropped some of the frames trace's events, so its stutters aren't kept ({own.Stutters.Count} found before)");
-            db.WriteFrameMinute(_minuteTs, appId, own.Spread, own.Lost ? [] : WithDrivers(own.Stutters), FrameSource.Own);
+            db.WriteFrameMinute(_minuteTs, appId, own.Spread, own.Lost ? [] : WithSnaps(appId, WithDrivers(own.Stutters)), FrameSource.Own);
             if (tally) Tally(appId).Add(FrameSource.Own, own.Spread.Frames, both: false);
         }
+    }
+
+    /// <summary>
+    /// The minute's stutters with what the PC was doing in the seconds around each (1.23.0, see StutterSnaps), read from the
+    /// close-up ring as the minute is written. Said in the log when some had nothing read near them.
+    /// </summary>
+    private IReadOnlyList<Stutter> WithSnaps(long appId, IReadOnlyList<Stutter> stutters)
+    {
+        if (stutters.Count == 0) return stutters;
+        var with = StutterSnaps.Attach(stutters, appId, (from, to) => Ring.Between(from, to));
+        int missing = with.Count(s => s.Snap is null);
+        if (missing > 0)
+            Log.Write("frames", $"{Exe(appId)}, minute at {TimeUtil.FromUnix(_minuteTs):HH:mm}: {stutters.Count} stutters, {missing} with no readings near them (ring {Ring.Count} readings, oldest {Ring.Oldest}, newest {Ring.Newest})");
+        return with;
     }
 
     private PlayFrames Tally(long appId)

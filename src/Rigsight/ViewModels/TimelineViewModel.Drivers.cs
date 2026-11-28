@@ -156,6 +156,15 @@ public sealed partial class TimelineViewModel
         catch (Exception ex) { Log.Write("app", $"Expected Device Manager to open, found {ex.GetType().Name}: {ex.Message}"); }
     }
 
+    /// <summary>Opens one driver from another page (the GPU page's "Every version", 1.23.0); false when the history doesn't have it.</summary>
+    public bool OpenDriver(string key)
+    {
+        if (_driverHistory?.Find(key) is null) return false;
+        Opened = null;
+        ShowDriver(key, fromList: false);
+        return true;
+    }
+
     private void ShowDriver(string key, bool fromList)
     {
         if (_driverHistory?.Find(key) is not { } device) return;

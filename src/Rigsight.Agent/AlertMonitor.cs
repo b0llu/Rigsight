@@ -13,6 +13,9 @@ internal sealed class AlertMonitor
     /// <summary>The readings the last alert was about ("CPU", "GPU", the hot spot), for its "usually sits at" sentence.</summary>
     public IReadOnlyList<string> LastParts { get; private set; } = [];
 
+    /// <summary>The reading the last alert said, when it was about one (°C), for the card's figure against the game's usual.</summary>
+    public double? LastValue { get; private set; }
+
     /// <summary>Returns the alert's title and words when one should be shown now, else null.</summary>
     public (string Title, string Body)? Check(KeyValues k, string? app, AlertSettings s, long nowMs)
     {
@@ -31,6 +34,7 @@ internal sealed class AlertMonitor
         if (over.Count == 0 || nowMs - _lastAlertMs < s.CooldownMinutes * 60_000L) return null;
         _lastAlertMs = nowMs;
         LastParts = [.. over.Select(h => h.Part).Distinct()];
+        LastValue = over.Count == 1 ? over[0].Value : null;
         return NoticeWords.Running(over, s.SustainSeconds, app);
 
         void Track(string name, double? value, double limit)

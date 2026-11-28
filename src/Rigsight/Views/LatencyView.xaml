@@ -4,6 +4,35 @@
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              xmlns:models="clr-namespace:Rigsight.Models"
              x:Name="Page">
+    <UserControl.Resources>
+        <!-- A heading of Drivers right now that sorts (1.23.0): muted, the one sorted by in the text colour with its arrow. -->
+        <Style x:Key="LiveSortHead" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="LatencyLiveSort" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <TextBlock Text="{TemplateBinding Content}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="Arrow" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S8}" Margin="5,1,0,0" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter TargetName="Arrow" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     <!-- The Latency page (issue #15, approved mock-up 2026-11-24): right now, the period's longest delay, each hour's longest,
          every driver, and what stood out; any driver opens in place of the list until Back. -->
     <Grid>
@@ -35,7 +64,7 @@
                                     <Run Text="{Binding LiveDriverNumber, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Jumbo}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" ms" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" />
                                 </TextBlock>
                                 <TextBlock Text="{Binding LiveDriverWho}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
-                                <ctl:LiveStrip Height="88" Margin="0,12,0,0" Bars="{Binding LiveDriverBars}" Stroke="{DynamicResource CpuBrush}" AutomationProperties.Name="{ctl:T 'Driver delay over the last 2 minutes'}" />
+                                <ctl:LiveStrip Height="88" Margin="0,12,0,0" Bars="{Binding LiveDriverBars}" Stroke="{DynamicResource CpuBrush}" LongBrush="{DynamicResource WarmBrush}" AutomationProperties.Name="{ctl:T 'Driver delay over the last 2 minutes'}" />
                                 <TextBlock Text="{Binding LiveDriverNote}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             </StackPanel>
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Card}" Padding="16" Margin="0,12,0,0"
@@ -68,6 +97,102 @@
                             </Border>
                         </StackPanel>
                     </Grid>
+
+                    <!-- ── Drivers right now (1.23.0, issue #18 item 11, approved mock-up "New"): every driver of the last 10
+                         seconds, busiest first, any of which opens as on Drivers. The rows are kept and change in place every
+                         2 seconds; only their order moves. Shown with the driver strip (no driver timings, no list). ── -->
+                    <StackPanel Margin="0,28,0,0" Visibility="{Binding LiveDrivers, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{ctl:T 'Under 1 ms'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource WarmBrush}" VerticalAlignment="Center" Margin="18,0,6,0" />
+                                <TextBlock Text="{ctl:T '1 ms or longer'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Grid Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <Ellipse Fill="{DynamicResource GoodSoftBrush}" />
+                                    <Ellipse Width="7" Height="7" Fill="{DynamicResource GoodBrush}" />
+                                </Grid>
+                                <TextBlock Text="{ctl:T 'Drivers right now'}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'The last 10 seconds, updated every 2 seconds'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,1,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2.5" HorizontalAlignment="Center" Margin="0,24,0,12"
+                                     Visibility="{Binding LiveRowsWaiting, Converter={StaticResource Vis}}" />
+                        <TextBlock Text="{ctl:T 'No driver ran in the last 10 seconds.'}" Style="{StaticResource Muted}" Margin="10,14,0,0"
+                                   Visibility="{Binding LiveRowsEmpty, Converter={StaticResource Vis}}" />
+                        <StackPanel Visibility="{Binding LiveRowsShown, Converter={StaticResource Vis}}">
+                            <Grid Margin="10,14,24,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="44" />
+                                    <ColumnDefinition Width="1.5*" />
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="130" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="{ctl:T 'DRIVER'}" Style="{StaticResource Caption}" />
+                                <RadioButton Grid.Column="3" Style="{StaticResource LiveSortHead}" Content="{ctl:T 'TIME BUSY'}" AutomationProperties.Name="{ctl:T 'Sort by time busy'}"
+                                             IsChecked="{Binding LiveDriverSort, Converter={StaticResource Equals}, ConverterParameter=Busy}" />
+                                <RadioButton Grid.Column="4" Style="{StaticResource LiveSortHead}" Content="{ctl:T 'LONGEST CALL'}" AutomationProperties.Name="{ctl:T 'Sort by longest call'}"
+                                             IsChecked="{Binding LiveDriverSort, Converter={StaticResource Equals}, ConverterParameter=Longest}" />
+                                <RadioButton Grid.Column="5" Style="{StaticResource LiveSortHead}" Content="{ctl:T 'CALLS A SECOND'}" AutomationProperties.Name="{ctl:T 'Sort by calls a second'}"
+                                             IsChecked="{Binding LiveDriverSort, Converter={StaticResource Equals}, ConverterParameter=Calls}" />
+                            </Grid>
+                            <!-- About nine rows, then the box scrolls. -->
+                            <ScrollViewer MaxHeight="440" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <ItemsControl ItemsSource="{Binding LiveDriverRows}" Focusable="False" Margin="0,0,14,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource FlatRowButton}" Focusable="True" FocusVisualStyle="{StaticResource FocusRing}" Command="{Binding DataContext.OpenLiveDriverCommand, ElementName=Page}" CommandParameter="{Binding}"
+                                                    AutomationProperties.Name="{Binding Who}" AutomationProperties.HelpText="{ctl:T 'Open its details'}" ToolTip="{Binding Tip}">
+                                                <Grid Margin="10,7">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="44" />
+                                                        <ColumnDefinition Width="1.5*" />
+                                                        <ColumnDefinition Width="1.2*" />
+                                                        <ColumnDefinition Width="110" />
+                                                        <ColumnDefinition Width="120" />
+                                                        <ColumnDefinition Width="130" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <!-- Its kind's colour on its icon, as on Drivers. -->
+                                                    <Border Style="{StaticResource IconBox}" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{Binding IconBack, Converter={StaticResource ResourceBrush}}">
+                                                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" HorizontalAlignment="Center" />
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,14,0">
+                                                        <TextBlock Text="{Binding Who}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                        <TextBlock Text="{Binding File}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                    </StackPanel>
+                                                    <!-- Its time busy against the busiest driver's, one blue for every driver. -->
+                                                    <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Height="8" Maximum="1" Value="{Binding Share, Mode=OneWay}" Margin="0,0,12,0"
+                                                                 Foreground="{DynamicResource CpuBrush}" VerticalAlignment="Center" IsHitTestVisible="False" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Busy}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                    <!-- The longest call's level as a small dot, blue under 1 ms and amber from 1 ms; the figure stays white. -->
+                                                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,1,6,0">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="{DynamicResource CpuBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsLong}" Value="True">
+                                                                            <Setter Property="Fill" Value="{DynamicResource WarmBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <TextBlock Text="{Binding Longest}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="5" Text="{Binding Calls}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
 
@@ -175,18 +300,18 @@
                                                  IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Over}" />
                                 </StackPanel>
                             </Border>
-                            <!-- The bars' two shades, named (1.22.0, the approved mock-up): driver delays only. -->
+                            <!-- The bars' two colours, named (1.23.0, the owner's "Blue and amber"): driver delays only. -->
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,18,0"
                                         Visibility="{Binding ShowLegend, Converter={StaticResource Vis}}">
                                 <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBlock Text="{ctl:T 'Over 1 ms'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource CpuBrush}" Opacity="0.5" VerticalAlignment="Center" Margin="18,0,6,0" />
                                 <TextBlock Text="{ctl:T 'Under 1 ms'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                <Border Width="10" Height="10" CornerRadius="2" Background="{DynamicResource WarmBrush}" VerticalAlignment="Center" Margin="18,0,6,0" />
+                                <TextBlock Text="{ctl:T '1 ms or longer'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                             <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
                         <TextBlock Text="{Binding ChartNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,6,0,0" Visibility="{Binding ChartNote, Converter={StaticResource Vis}}" />
-                        <ctl:LatencyChart Height="240" Margin="0,14,0,0" Slots="{Binding Slots}" IsMs="{Binding ChartIsMs}" Guidance="{Binding ChartShowsGuidance}" BarBrush="{Binding ChartBrush, Converter={StaticResource ResourceBrush}}" GapReason="{Binding GapReason}" RecordedFrom="{Binding ChartRecordedFrom}" AutomationProperties.Name="{Binding ChartTitle}" />
+                        <ctl:LatencyChart Height="240" Margin="0,14,0,0" Slots="{Binding Slots}" IsMs="{Binding ChartIsMs}" Guidance="{Binding ChartShowsGuidance}" BarBrush="{Binding ChartBrush, Converter={StaticResource ResourceBrush}}" LongBrush="{Binding ChartLongBrush, Converter={StaticResource ResourceBrush}}" GapReason="{Binding GapReason}" RecordedFrom="{Binding ChartRecordedFrom}" AutomationProperties.Name="{Binding ChartTitle}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 
@@ -536,7 +661,7 @@
                     <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" />
-                            <ctl:LatencyChart Height="200" Margin="0,14,0,0" Slots="{Binding Slots}" GapReason="{Binding DataContext.GapReason, ElementName=Page}" RecordedFrom="{Binding DataContext.DriverRecordedFrom, ElementName=Page}" AutomationProperties.Name="{Binding ChartTitle}" />
+                            <ctl:LatencyChart Height="200" Margin="0,14,0,0" Slots="{Binding Slots}" BarBrush="{DynamicResource CpuBrush}" LongBrush="{DynamicResource WarmBrush}" GapReason="{Binding DataContext.GapReason, ElementName=Page}" RecordedFrom="{Binding DataContext.DriverRecordedFrom, ElementName=Page}" AutomationProperties.Name="{Binding ChartTitle}" />
                             <TextBlock Text="{Binding UsualText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
 
                             <!-- What to try (1.21.0): Latency's tips as the shared block. -->

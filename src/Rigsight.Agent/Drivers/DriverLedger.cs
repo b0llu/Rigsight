@@ -2,6 +2,9 @@ using Rigsight.Core.Drivers;
 
 namespace Rigsight.Agent.Drivers;
 
+/// <summary>A driver's calls over the last few seconds (see <see cref="DriverLedger.Now"/>): all, its own time, its DPCs' and interrupts' share of it, its longest (µs).</summary>
+internal readonly record struct DriverNow(string Driver, int Calls, long BusyUs, long DpcUs, long IsrUs, int LongestUs);
+
 /// <summary>The four kinds of driver call Windows times (the PerfInfo event's opcode says which).</summary>
 internal enum DriverCall
 {
@@ -65,6 +68,21 @@ internal sealed class DriverLedger
     // The live Latency page's seconds (issue #15): each second's longest call and its driver, the last LiveSeconds kept.
     internal const int LiveSeconds = 120;
     private readonly (long Sec, int Us, int Driver)[] _seconds = new (long, int, int)[LiveSeconds];
+
+    // Drivers right now (1.23.0, issue #18 item 11): each driver's calls in each of the last WindowSeconds seconds, kept
+    // only while the Latency page is open (Watch) and let go when it closes. A row of cells by driver number for each
+    // second, cleared when its second comes round again; drivers are numbered only once they make a call, so a row is as
+    // long as the drivers seen (a few dozen; 24 bytes each). TakeMinute's tallies are never touched.
+    internal const int WindowSeconds = 10;
+    private struct Cell
+    {
+        public int Count, LongestUs;
+        public long TotalUs, IsrUs;
+    }
+    private Cell[][]? _window;
+    private readonly long[] _windowSec = new long[WindowSeconds];
+    private Cell[] _windowSum = [];
+    private long _watchFrom;
 
     /// <param name="ticksPerSecond">The trace clock's rate (the precise counter's: Stopwatch.Frequency).</param>
     /// <param name="cpus">Cores to make room for at the start (more are made room for as they come).</param>
@@ -165,6 +183,7 @@ internal sealed class DriverLedger
             ref var slot = ref _seconds[(int)(((sec % LiveSeconds) + LiveSeconds) % LiveSeconds)];
             if (slot.Sec != sec) slot = (sec, us, driver);
             else if (us > slot.Us) (slot.Us, slot.Driver) = (us, driver);
+            if (_window is not null) Window(sec, driver, us, kind == DriverCall.Isr);
             if (us >= DriverRules.LongUs)
             {
                 t.Long++;
@@ -229,6 +248,91 @@ internal sealed class DriverLedger
             var live = (_liveUs, _liveDriver >= 0 && _liveDriver < _names.Count ? _names[_liveDriver] : "");
             (_liveUs, _liveDriver) = (0, 0);
             return live;
+        }
+    }
+
+    // One call into its second's row (under the lock). A call from a second older than its slot holds (batches come
+    // slightly out of order) is from before the window and is left out; a newer one takes the slot over.
+    private void Window(long sec, int driver, int us, bool isr)
+    {
+        int i = (int)(((sec % WindowSeconds) + WindowSeconds) % WindowSeconds);
+        if (sec < _windowSec[i] || sec < _watchFrom) return;
+        ref var row = ref _window![i];
+        if (sec != _windowSec[i])
+        {
+            Array.Clear(row);
+            _windowSec[i] = sec;
+        }
+        if (driver >= row.Length) Array.Resize(ref row, Math.Max(_names.Count, driver + 1));
+        ref var c = ref row[driver];
+        c.Count++;
+        c.TotalUs += us;
+        if (us > c.LongestUs) c.LongestUs = us;
+        if (isr) c.IsrUs += us;
+    }
+
+    /// <summary>
+    /// Starts or stops keeping each driver's last <see cref="WindowSeconds"/> seconds (Drivers right now, only while the
+    /// Latency page is open); <paramref name="nowSec"/> (Unix seconds) is when it starts. Stopping lets the rows go.
+    /// Returns whether this changed anything.
+    /// </summary>
+    public bool Watch(bool on, long nowSec)
+    {
+        lock (_gate)
+        {
+            if (on == _window is not null) return false;
+            if (on)
+            {
+                _window = new Cell[WindowSeconds][];
+                for (int i = 0; i < WindowSeconds; i++) _window[i] = new Cell[_names.Count];
+                Array.Clear(_windowSec);
+                _watchFrom = nowSec;
+            }
+            else
+            {
+                _window = null;
+                _windowSum = [];
+            }
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Each driver's calls from <paramref name="fromSec"/> to <paramref name="toSec"/> (Unix seconds, both included, at
+    /// most <see cref="WindowSeconds"/>), drivers with none left out, and how many of those seconds were kept (fewer
+    /// just after <see cref="Watch"/> started; 0 and nothing while it isn't on).
+    /// </summary>
+    public (List<DriverNow> Drivers, int Seconds) Now(long fromSec, long toSec)
+    {
+        lock (_gate)
+        {
+            if (_window is null) return ([], 0);
+            fromSec = Math.Max(Math.Max(fromSec, toSec - WindowSeconds + 1), _watchFrom);
+            int seconds = (int)Math.Max(0, toSec - fromSec + 1);
+            if (_windowSum.Length < _names.Count) _windowSum = new Cell[_names.Count];
+            else Array.Clear(_windowSum);
+            for (long sec = fromSec; sec <= toSec; sec++)
+            {
+                int i = (int)(((sec % WindowSeconds) + WindowSeconds) % WindowSeconds);
+                if (_windowSec[i] != sec) continue;
+                var row = _window[i];
+                for (int d = 0; d < row.Length && d < _windowSum.Length; d++)
+                {
+                    if (row[d].Count == 0) continue;
+                    ref var s = ref _windowSum[d];
+                    s.Count += row[d].Count;
+                    s.TotalUs += row[d].TotalUs;
+                    s.IsrUs += row[d].IsrUs;
+                    if (row[d].LongestUs > s.LongestUs) s.LongestUs = row[d].LongestUs;
+                }
+            }
+            var list = new List<DriverNow>();
+            for (int d = 0; d < _windowSum.Length && d < _names.Count; d++)
+            {
+                ref var s = ref _windowSum[d];
+                if (s.Count > 0) list.Add(new DriverNow(_names[d], s.Count, s.TotalUs, s.TotalUs - s.IsrUs, s.IsrUs, s.LongestUs));
+            }
+            return (list, seconds);
         }
     }
 

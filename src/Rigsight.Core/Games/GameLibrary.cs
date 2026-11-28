@@ -33,6 +33,12 @@ public sealed record InstalledGame
     public DateTime? LastPlayed { get; init; }
     public string? LaunchTarget { get; init; }
     public string? LaunchArgs { get; init; }
+    /// <summary>
+    /// The program the launcher itself starts for this game, inside <see cref="InstallDir"/> (Epic's LaunchExecutable,
+    /// "FortniteGame/Binaries/Win64/FortniteLauncher.exe"), where the launcher's own records say; null where they don't
+    /// (Steam keeps it in a file RigSight doesn't read). Only that program counts as the game from the listing alone.
+    /// </summary>
+    public string? LaunchExe { get; init; }
     public string? UninstallTarget { get; init; }
     public string? UninstallArgs { get; init; }
     public GameArt Art { get; init; } = GameArt.None;
@@ -41,6 +47,18 @@ public sealed record InstalledGame
 
     /// <summary>True when <paramref name="exePath"/> is inside this game's folder.</summary>
     public bool Contains(string? exePath) => exePath is not null && GameLibrary.IsUnder(exePath, InstallDir);
+
+    /// <summary>True when <paramref name="exePath"/> is the program the launcher starts for this game (<see cref="LaunchExe"/>).</summary>
+    public bool Starts(string? exePath)
+    {
+        if (exePath is null || LaunchExe is not { Length: > 0 } launch) return false;
+        try
+        {
+            var full = Path.GetFullPath(Path.Combine(InstallDir, launch.Replace('/', '\\').TrimStart('\\')));
+            return string.Equals(full, Path.GetFullPath(exePath.Replace('/', '\\')), StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+    }
 }
 
 /// <summary>One entry of Windows' list of installed programs (the Uninstall keys).</summary>
@@ -159,7 +177,10 @@ public static class GameLibrary
     }
 
     // Steam's own tools that sit in the library like games.
-    private static readonly HashSet<string> SteamNotGames = ["228980", "1070560", "1391110", "1628350", "1493710", "250820", "431960"];
+    // Steamworks redistributables, Steam Linux runtimes, SteamVR, Wallpaper Engine (431960); since 1.23.0 also Lossless Scaling
+    // (993090), OBS Studio (1905180), Blender (365670), Aseprite (431730), Soundpad (629520) and 3DMark (223850).
+    private static readonly HashSet<string> SteamNotGames = ["228980", "1070560", "1391110", "1628350", "1493710", "250820", "431960",
+        "993090", "1905180", "365670", "431730", "629520", "223850"];
 
     /// <summary>One Steam library's games. A library that can't be listed, or one manifest that can't be read, costs only itself.</summary>
     private static List<InstalledGame> ReadLibrary(string steamapps, string root, bool withArt)
@@ -287,6 +308,7 @@ public static class GameLibrary
                     Version = S("AppVersionString"),
                     LaunchTarget = ns is not null && item is not null && app is not null
                         ? $"com.epicgames.launcher://apps/{ns}%3A{item}%3A{app}?action=launch&silent=true" : null,
+                    LaunchExe = S("LaunchExecutable") is { Length: > 0 } launchExe ? launchExe : null,
                     // Epic writes nothing to Windows' list of programs: its own library is where a game is removed.
                     UninstallTarget = "com.epicgames.launcher://store/library",
                 };

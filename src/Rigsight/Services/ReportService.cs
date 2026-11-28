@@ -44,6 +44,42 @@ public sealed class ReportService(SettingsModel settings)
         return Run(db => query(db, s));
     }
 
+    /// <summary>
+    /// The GPU or CPU page's history for a period (1.23.0), with the apps it names and their files (their icons warmed here,
+    /// off the window's thread), games counted as the rest of the app does.
+    /// </summary>
+    /// <param name="name">The part's name now (the sensors'): the last new part on record must have put it in (1.23.0's marks).</param>
+    public Task<ViewModels.PartPage?> PartAsync(Core.Parts.Part part, ReportRange unit, DateTime from, DateTime to, string? name = null)
+    {
+        var s = Snapshot();
+        return Run(db =>
+        {
+            var apps = db.LoadApps().ToDictionary(a => a.Id);
+            var games = apps.Keys.Where(id => ReportBuilder.CategoryOf(apps, s, id) == AppCategory.Game).ToHashSet();
+            // The GPU's driver updates and the part's swaps, from the changes already recorded (the Timeline's).
+            string area = part == Core.Parts.Part.Gpu ? "gpu" : "cpu";
+            var changes = db.GetChanges(0, long.MaxValue / 2);
+            var drivers = part == Core.Parts.Part.Gpu ? db.GetDriverHistory(DateTime.Now, changes) : null;
+            var events = Core.Parts.PartEvents.Of(part, changes, drivers, name);
+            if (events.Said is { } said) Log.Write(area, said);
+            var report = Core.Parts.PartReport.Build(db, part, unit, from, to, games, db.FirstMinuteTime(), DateTime.Now, events);
+            if (report.Marks.Count > 0 || report.Swap is not null)
+                Log.Write(area, $"History marks {from:d MMM} to {to:d MMM}: {report.Marks.Count(m => m.Kind == Core.Parts.PartMarkKind.Driver)} driver update(s), "
+                    + $"{report.Marks.Count(m => m.Kind == Core.Parts.PartMarkKind.NewPart)} new part(s); last new part "
+                    + $"{(report.Swap is { } w ? $"{w.NewName} at {w.At:d MMM HH:mm}" : "none")}, figures counted from {report.CountedFrom:d MMM HH:mm}");
+            var ids = report.Apps.Select(a => a.App).Concat(report.Slots.SelectMany(x => x.GameTimes).Select(g => g.App))
+                .Concat(report.Marks.SelectMany(m => m.Before.ByGame.Keys.Concat(m.After.ByGame.Keys))).Distinct().ToList();
+            var names = ids.ToDictionary(id => id, id => ReportBuilder.NameOf(apps, s, id));
+            var paths = ids.ToDictionary(id => id, id => apps.TryGetValue(id, out var a) ? a.Path : null);
+            IconCache.Warm(paths.Values);
+            return new ViewModels.PartPage(report, names, paths);
+        });
+    }
+
+    /// <summary>The graphics card's own driver from the driver history (1.22.0), for the GPU page's subtitle and driver line; null before the first look.</summary>
+    public Task<Core.Stability.DriverDevice?> GraphicsDriverAsync() => Run(db =>
+        db.GetDriverHistory(DateTime.Now, db.GetChanges(0, long.MaxValue / 2)).GraphicsCard);
+
     /// <summary>The Power page's facts for a period (1.18.0), with apps named and games counted as the rest of the app does.</summary>
     public Task<ViewModels.PowerPage?> PowerAsync(PowerPeriod period, DateTime from, DateTime to)
     {
@@ -214,27 +250,26 @@ public sealed class ReportService(SettingsModel settings)
         Run(db => db.GetDriveDays(TimeUtil.ToUnix(DateTime.Today.AddDays(-days))));
 
     /// <summary>
-    /// The apps that read and wrote the most on the drives in the last <paramref name="days"/> days (one drive by its key, or
-    /// all), most first, by name. What Windows' file cache wrote for them is said as "Windows, for apps".
+    /// Every app that read or wrote on the drives over <paramref name="span"/> (see <see cref="Core.Storage.AppDrives.Span(int, DateTime)"/>;
+    /// one drive by its key, or all), most first, by name, each with its drives busiest first (1.23.0: the list and its
+    /// split by drive come from this one read). What Windows' file cache wrote for them is said as "Windows, for apps".
+    /// The apps' icons are read here, off the window's thread. With the list, the first day on record (Custom's calendar).
     /// </summary>
-    public Task<List<Models.DiskUseLine>?> DiskUseAsync(int days, string? disk, int top) => Run(db =>
+    public Task<(List<Models.DiskUseLine> Lines, DateTime? FirstDay)?> DiskUseAsync((long From, long To, bool ByHour) span, string? disk, int? top = null) =>
+        Run<(List<Models.DiskUseLine>, DateTime?)?>(db =>
     {
-        // A day is the last 24 hours, hour by hour; a week or a month whole days, today's included.
-        bool hours = days <= 1;
-        long from = hours ? TimeUtil.ToUnix(DateTime.Now.AddHours(-24)) : TimeUtil.ToUnix(DateTime.Today.AddDays(-(days - 1)));
-        long to = hours ? TimeUtil.ToUnix(DateTime.Now) + 3600 : TimeUtil.ToUnix(DateTime.Today.AddDays(1));
         var apps = db.LoadApps().ToDictionary(a => a.Id);
-        var rows = hours ? db.GetDiskAppHours(from, to) : db.GetDiskAppDays(from, to);
-        return rows.Where(u => disk is null || u.Disk == disk).GroupBy(u => u.App)
-            .Select(g =>
+        var lines = Core.Storage.AppDrives.Read(db, span, disk).Take(top ?? int.MaxValue)
+            .Select(u =>
             {
-                var app = apps.GetValueOrDefault(g.Key);
+                var app = apps.GetValueOrDefault(u.App);
                 bool system = string.Equals(app?.Exe, "System", StringComparison.OrdinalIgnoreCase);
-                // The drive it used most, for the line's letter.
-                string? main = g.GroupBy(u => u.Disk).MaxBy(d => d.Sum(u => u.Read + u.Write))?.Key;
-                return new Models.DiskUseLine(system ? Lang.T("Windows, for apps") : app?.Name ?? Lang.T("An app"), system, main, g.Sum(u => u.Read), g.Sum(u => u.Write));
+                return new Models.DiskUseLine(system ? Lang.T("Windows, for apps") : app?.Name ?? Lang.T("An app"), system, u.MainDisk, u.Read, u.Write,
+                    system ? null : app?.Path) { Drives = u.Drives };
             })
-            .Where(l => l.Read + l.Write > 0).OrderByDescending(l => l.Read + l.Write).Take(top).ToList();
+            .ToList();
+        IconCache.Warm(lines.Select(l => l.Path));
+        return (lines, db.FirstDiskDay() is long first ? TimeUtil.FromUnix(first).Date : null);
     });
 
     /// <summary>Every drive's daily health rows for the last <paramref name="days"/> days (all drives together).</summary>

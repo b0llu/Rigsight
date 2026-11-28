@@ -37,6 +37,8 @@ public sealed class CloseUpPoint
     /// <summary>The app in front (its id in the apps table), and whether anyone was at the PC.</summary>
     [JsonPropertyName("f")] public long? Front { get; set; }
     [JsonPropertyName("h")] public bool Here { get; set; }
+    /// <summary>What the app in front read and wrote, bytes a second (1.23.0: a game's own disk use around its stutters). Null before then.</summary>
+    [JsonPropertyName("fd")] public double? FrontDisk { get; set; }
     [JsonPropertyName("fans")] public List<CloseUpFan>? Fans { get; set; }
     /// <summary>The apps doing the most (a few for the CPU, the GPU and memory), the hardest on the CPU first.</summary>
     [JsonPropertyName("a")] public List<CloseUpApp>? Apps { get; set; }

@@ -1134,6 +1134,7 @@ public sealed partial class LiveData : ObservableObject
             }
         }
         List<(ProcRow Row, ProcInfo Now)>? staying = null;
+        var chosen = _settings.Current.AppCategories;
         foreach (var p in procs)
         {
             if (_procIndex.TryGetValue(p.Exe, out var row))
@@ -1143,11 +1144,11 @@ public sealed partial class LiveData : ObservableObject
             }
             row = new ProcRow(p.Exe);
             _procIndex[p.Exe] = row;
-            row.Update(p);
+            row.Update(p, KindChosen(chosen, p.Exe));
             Procs.Add(row);
         }
         if (staying is not null)
-            foreach (var (row, now) in staying) row.Update(now);
+            foreach (var (row, now) in staying) row.Update(now, KindChosen(chosen, now.Exe));
         // Rows update themselves; only replace the list (which rebuilds the tile's rows) when it changes.
         var top6 = Procs.OrderByDescending(p => p.MemMB).Take(6).ToList();
         if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
@@ -1160,6 +1161,21 @@ public sealed partial class LiveData : ObservableObject
         }
         UpdateBars();
         ProcsApplied?.Invoke();
+    }
+
+    private static AppCategory? KindChosen(Dictionary<string, AppCategory> chosen, string exe) =>
+        chosen.TryGetValue(exe, out var c) ? c : null;
+
+    /// <summary>
+    /// The person picked a kind for a running app (Processes, the row's menu): kept as the Apps page keeps it, the
+    /// person's choice in AppCategories, which every page and the agent go by; the row shows it at once.
+    /// </summary>
+    public void SetCategory(ProcRow row, AppCategory category)
+    {
+        var exe = row.Exe;
+        _settings.Update(s => s.AppCategories[exe] = category);
+        row.Category = category;
+        Log.Write("apps", $"{exe} set to {category} from Processes");
     }
 
     /// <summary>
@@ -1177,11 +1193,15 @@ public sealed partial class LiveData : ObservableObject
             OnlyAboveUsual = false;
             return; // its change refreshed the list and came back here
         }
-        double biggest = Procs.Where(Listed).Select(p => Math.Max(p.MemMB, p.UsualMB ?? 0)).DefaultIfEmpty(0).Max();
+        // The top of a usual's spread counts too, so its band fits on the bar.
+        double biggest = Procs.Where(Listed).Select(p => Math.Max(p.MemMB, p.UsualSpread?.High ?? p.UsualMB ?? 0)).DefaultIfEmpty(0).Max();
+        double Share(double mb) => biggest > 0 ? Math.Min(mb / biggest * 100, 100) : 0;
         foreach (var p in Procs)
         {
-            p.Bar = biggest > 0 ? Math.Min(p.MemMB / biggest * 100, 100) : 0;
-            p.Mark = biggest > 0 && p.UsualMB is { } usual ? Math.Min(usual / biggest * 100, 100) : 0;
+            p.Bar = Share(p.MemMB);
+            p.Mark = p.UsualMB is { } usual ? Share(usual) : 0;
+            p.MarkLow = p.UsualSpread is { } low ? Share(low.Low) : p.Mark;
+            p.MarkHigh = p.UsualSpread is { } high ? Share(high.High) : p.Mark;
         }
     }
 

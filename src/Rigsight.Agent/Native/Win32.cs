@@ -20,6 +20,7 @@ internal static partial class Win32
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] public static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] public static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr childAfter, string? className, string? title);
     [DllImport("user32.dll")] public static extern IntPtr GetShellWindow();
     [DllImport("user32.dll")] public static extern IntPtr GetDesktopWindow();
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
@@ -266,5 +267,24 @@ internal static partial class Win32
         public byte BlendFlags;
         public byte SourceConstantAlpha;
         public byte AlphaFormat;
+    }
+
+    // ── Windows' animation setting ────────────────────────────────────────
+    [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
+    private static extern bool SystemParametersInfo(uint action, uint param, ref int value, uint winIni);
+
+    private const uint SPI_GETCLIENTAREAANIMATION = 0x1042;
+
+    /// <summary>
+    /// Windows' "Animation effects" (Settings › Accessibility › Visual effects), read as the app reads it
+    /// (WPF's SystemParameters.ClientAreaAnimation): off, things appear and move at once. On when it can't be read.
+    /// </summary>
+    public static bool ClientAreaAnimation
+    {
+        get
+        {
+            int on = 1;
+            return !SystemParametersInfo(SPI_GETCLIENTAREAANIMATION, 0, ref on, 0) || on != 0;
+        }
     }
 }

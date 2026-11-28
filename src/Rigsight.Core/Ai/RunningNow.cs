@@ -76,7 +76,7 @@ public sealed record RunningSnapshot(DateTime At, IReadOnlyList<RunningApp> Apps
         // Said with how many there are: a model took an app missing from the busiest as not running (audit Q125, 2026-11-17).
         if (Apps.Count > shown.Count)
             sb.AppendLine($"Showing {shown.Count} of the {Apps.Count} apps running now (those using 150 MB of memory or 2% of the CPU or graphics card, at most {MostShown}); the other {Apps.Count - shown.Count} aren't listed. An app missing from this list may still be running: never say it isn't from this list alone.");
-        if (usual is not null) sb.AppendLine($"An app's usual is its average memory over the {Reports.AppPast.UsualDays} days before today, the figure the Memory page shows.");
+        if (usual is not null) sb.AppendLine($"An app's usual is the middle of its days over the {Reports.AppPast.UsualDays} days before today, each day its average memory over every second it ran; the Memory page shows the middle half of those days as a spread.");
         sb.AppendLine("This is a moment, not history: an app's usual use is in get_apps and get_memory.");
         return sb.ToString();
     }

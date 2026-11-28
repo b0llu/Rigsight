@@ -187,12 +187,15 @@ public sealed partial class RigsightDb
             cmd.ExecuteNonQuery();
         foreach (var s in stutters)
         {
-            // The driver whose long bursts fell inside the frame, when there was one (driver activity, issue #15).
-            using var cmd = s.Drv is { Length: > 0 } && HasStutterDrivers
-                ? Cmd("INSERT OR REPLACE INTO stutter(ts_ms, app, ms, usual_ms, drv, drv_us) VALUES($ts, $app, $ms, $usual, $drv, $us)",
-                    ("$ts", s.AtMs), ("$app", app), ("$ms", Math.Round(s.Ms, 1)), ("$usual", Math.Round(s.UsualMs, 1)), ("$drv", s.Drv), ("$us", s.DrvUs))
-                : Cmd("INSERT OR REPLACE INTO stutter(ts_ms, app, ms, usual_ms) VALUES($ts, $app, $ms, $usual)",
-                    ("$ts", s.AtMs), ("$app", app), ("$ms", Math.Round(s.Ms, 1)), ("$usual", Math.Round(s.UsualMs, 1)));
+            // The driver whose long bursts fell inside the frame, when there was one (driver activity, issue #15), and what
+            // the PC was doing in the seconds around it (1.23.0).
+            bool drv = s.Drv is { Length: > 0 } && HasStutterDrivers, snap = s.Snap is not null && HasStutterSnaps;
+            string columns = "ts_ms, app, ms, usual_ms" + (drv ? ", drv, drv_us" : "") + (snap ? ", " + string.Join(", ", SnapColumns) : "");
+            string values = "$ts, $app, $ms, $usual" + (drv ? ", $drv, $us" : "") + (snap ? ", " + string.Join(", ", SnapColumns.Select(c => "$" + c)) : "");
+            using var cmd = Cmd($"INSERT OR REPLACE INTO stutter({columns}) VALUES({values})",
+                ("$ts", s.AtMs), ("$app", app), ("$ms", Math.Round(s.Ms, 1)), ("$usual", Math.Round(s.UsualMs, 1)));
+            if (drv) { cmd.Parameters.AddWithValue("$drv", s.Drv); cmd.Parameters.AddWithValue("$us", s.DrvUs); }
+            if (snap) AddSnap(cmd, s.Snap!);
             cmd.ExecuteNonQuery();
         }
     }
@@ -263,15 +266,18 @@ public sealed partial class RigsightDb
     {
         var list = new List<Games.Stutter>();
         if (!HasFrames) return list;
-        bool drivers = HasStutterDrivers;
-        using var cmd = Cmd(drivers
-            ? "SELECT ts_ms, ms, usual_ms, drv, drv_us FROM stutter WHERE app = $app AND ts_ms >= $from AND ts_ms < $to ORDER BY ts_ms"
-            : "SELECT ts_ms, ms, usual_ms FROM stutter WHERE app = $app AND ts_ms >= $from AND ts_ms < $to ORDER BY ts_ms", ("$app", appId), ("$from", fromMs), ("$to", toMs));
+        bool drivers = HasStutterDrivers, snaps = HasStutterSnaps;
+        // The driver's columns always come before the snapshot's (both were added in that order).
+        using var cmd = Cmd("SELECT ts_ms, ms, usual_ms" + (drivers ? ", drv, drv_us" : "") + (snaps ? ", " + string.Join(", ", SnapColumns) : "")
+            + " FROM stutter WHERE app = $app AND ts_ms >= $from AND ts_ms < $to ORDER BY ts_ms", ("$app", appId), ("$from", fromMs), ("$to", toMs));
         using var r = cmd.ExecuteReader();
         while (r.Read())
+        {
+            var snap = snaps ? SnapOf(r, drivers ? 5 : 3) : null;
             list.Add(drivers && !r.IsDBNull(3)
-                ? new Games.Stutter(r.GetInt64(0), r.GetDouble(1), r.GetDouble(2), r.GetString(3), r.IsDBNull(4) ? 0 : r.GetInt32(4))
-                : new Games.Stutter(r.GetInt64(0), r.GetDouble(1), r.GetDouble(2)));
+                ? new Games.Stutter(r.GetInt64(0), r.GetDouble(1), r.GetDouble(2), r.GetString(3), r.IsDBNull(4) ? 0 : r.GetInt32(4), snap)
+                : new Games.Stutter(r.GetInt64(0), r.GetDouble(1), r.GetDouble(2), Snap: snap));
+        }
         return list;
     }
 

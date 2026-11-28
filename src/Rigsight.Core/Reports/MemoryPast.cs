@@ -27,8 +27,14 @@ public sealed class MemoryPast
     /// <summary>How many apps the fullest minute's hover box names.</summary>
     public const int FullestAppsListed = 4;
 
-    /// <summary>Each app's average memory over the days before today (MB), by its program's name; apps with too few days have none.</summary>
+    /// <summary>
+    /// Each app's usual memory (MB), by its program's name: the middle of its days before today (<see cref="MemoryUsual.Middle"/>),
+    /// where one figure is needed (how far above its usual it is). Apps with too few days have none.
+    /// </summary>
     public Dictionary<string, double> Usual { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Each app's usual as a spread, the middle half of its days (see <see cref="MemoryUsual"/>), by its program's name.</summary>
+    public Dictionary<string, MemoryUsual> Spread { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Each app's memory in each hour of today (MB), from midnight to the hour now; null where it wasn't recorded.</summary>
     public Dictionary<string, double?[]> Hours { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -111,32 +117,36 @@ public sealed class MemoryPast
         };
         foreach (var (exe, of) in hours) past.Hours[exe] = of;
         foreach (var (exe, peak) in peaks) past.Peak[exe] = peak;
-        foreach (var (exe, mb) in usual) past.Usual[exe] = mb;
+        foreach (var (exe, u) in usual)
+        {
+            past.Usual[exe] = u.Middle;
+            past.Spread[exe] = u;
+        }
         return past;
     }
 
     /// <summary>
-    /// Each app's usual memory (MB) by its program's name: its average over the <see cref="AppPast.UsualDays"/> days
-    /// before today, for apps with at least <see cref="AppPast.MinUsualDays"/> of them. The one figure the Memory page and
-    /// the AI's look-ups both give (2026-10-30: the page said Spotify "usually holds 356 MB", the AI's week average said
-    /// 414 MB, and the answer called the page's number missing from the records).
+    /// Each app's usual memory by its program's name, as a spread (see <see cref="MemoryUsual"/>): every second it ran in
+    /// the <see cref="AppPast.UsualDays"/> days before today, for apps that ran on at least <see cref="AppPast.MinUsualDays"/>
+    /// of them. The one usual the Memory page, the Processes page and the AI's look-ups all give (2026-10-30: the page said
+    /// Spotify "usually holds 356 MB", the AI's week average said 414 MB, and the answer called the page's number missing
+    /// from the records).
     /// </summary>
-    public static Dictionary<string, double> UsualOf(RigsightDb db, DateTime now, IReadOnlyDictionary<long, AppRow>? apps = null) =>
+    public static Dictionary<string, MemoryUsual> SpreadOf(RigsightDb db, DateTime now, IReadOnlyDictionary<long, AppRow>? apps = null) =>
         UsualAndDays(db, now, apps).Usual;
 
-    /// <summary><see cref="UsualOf"/>, and the most days any app has on record for it (<see cref="RecordedDays"/>).</summary>
-    private static (Dictionary<string, double> Usual, int Days) UsualAndDays(RigsightDb db, DateTime now, IReadOnlyDictionary<long, AppRow>? apps)
+    /// <summary>Each app's usual as one figure (MB), the middle of its spread (<see cref="SpreadOf"/>).</summary>
+    public static Dictionary<string, double> UsualOf(RigsightDb db, DateTime now, IReadOnlyDictionary<long, AppRow>? apps = null) =>
+        SpreadOf(db, now, apps).ToDictionary(kv => kv.Key, kv => kv.Value.Middle, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary><see cref="SpreadOf"/>, and the most days any app has on record for it (<see cref="RecordedDays"/>).</summary>
+    private static (Dictionary<string, MemoryUsual> Usual, int Days) UsualAndDays(RigsightDb db, DateTime now, IReadOnlyDictionary<long, AppRow>? apps)
     {
         apps ??= db.LoadApps().ToDictionary(a => a.Id);
-        var today = now.Date;
-        var usual = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        int most = 0;
-        foreach (var (id, sum, n, days) in db.GetAppMemoryTotals(TimeUtil.ToUnix(today.AddDays(-AppPast.UsualDays)), TimeUtil.ToUnix(today)))
-        {
-            if (n <= 0 || !apps.TryGetValue(id, out var app)) continue;
-            most = Math.Max(most, days);
-            if (days >= AppPast.MinUsualDays) usual[app.Exe] = sum / n;
-        }
+        var usual = new Dictionary<string, MemoryUsual>(StringComparer.OrdinalIgnoreCase);
+        var (byApp, most) = MemoryUsual.ForApps(db, now);
+        foreach (var (id, u) in byApp)
+            if (apps.TryGetValue(id, out var app)) usual[app.Exe] = u;
         return (usual, most);
     }
 

@@ -244,6 +244,7 @@ public sealed partial class RigsightDb : IDisposable
         EnsureDriveHealthSchema();
         EnsureAppCpuSchema();
         EnsureDriverSchema();
+        EnsureStutterSnapSchema();
         EnsureMarkSchema();
         EnsureDeviceFullSchema();
         // Desktop hitches were recorded only by the 1.16.1.1 test build: Windows 11 never sent the compositor events it

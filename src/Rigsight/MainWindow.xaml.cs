@@ -490,6 +490,8 @@ public partial class MainWindow : Window
                 "power" => new PowerView { DataContext = _vm.Power },
                 "latency" => new LatencyView { DataContext = _vm.Latency },
                 "startup" => new StartupView { DataContext = _vm.Startup },
+                "gpu" => new PartView { DataContext = _vm.Gpu },
+                "cpu" => new PartView { DataContext = _vm.Cpu },
                 ViewModels.SidebarViewModel.AllPagesKey => new AllPagesView { DataContext = _vm.AllPages },
                 "network" => new NetworkView { DataContext = _vm.Network },
                 "memory" => new MemoryView { DataContext = _vm.Memory },

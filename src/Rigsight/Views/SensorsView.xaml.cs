@@ -12,8 +12,15 @@ public partial class SensorsView : UserControl
     public SensorsView()
     {
         InitializeComponent();
+        ((Controls.Proxy)Resources["View"]).Data = this;
         DataContextChanged += OnDataContextChanged;
-        Unloaded += (_, _) => { if (_live is not null) _live.Revealed -= ScrollTo; };
+        Unloaded += (_, _) =>
+        {
+            if (_live is not null) _live.Revealed -= ScrollTo;
+            // Left while scrolling: the lines are drawn again when the page is back.
+            _scrollRest?.Stop();
+            SensorList.ClearValue(Controls.Sparkline.HoldProperty);
+        };
         Loaded += (_, _) => { if (_live is not null) { _live.Revealed -= ScrollTo; _live.Revealed += ScrollTo; } };
         SizeChanged += (_, e) => Fit(e.NewSize.Width);
     }
@@ -197,21 +204,71 @@ public partial class SensorsView : UserControl
         return null;
     }
 
-    private void RenameBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (sender is not TextBox box) return;
+    // ── Renaming a sensor: the box is put in the row only while renaming (1.23.0) ──
 
-        if (e.Key == Key.Enter)
+    /// <summary>
+    /// A click on a sensor's name: the rename box takes the name's place, focused, its caret at the end. Enter or a click
+    /// elsewhere keeps the new name, Escape keeps the old one; either way the plain name comes back. Each row used to
+    /// carry a box of its own, built with the row, on every row of a long list.
+    /// </summary>
+    private void Name_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Border { DataContext: Models.SensorItem item, Parent: Grid row } shown) return;
+        e.Handled = true;
+        var box = new TextBox { Style = (Style)FindResource("InlineEdit"), Text = item.Label, ToolTip = item.NameTip };
+        Grid.SetColumn(box, Grid.GetColumn(shown));
+        bool done = false;
+        void Finish(bool keep)
         {
-            box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
-            Keyboard.ClearFocus();
-            e.Handled = true;
+            if (done) return;
+            done = true;
+            if (keep) item.Label = box.Text;
+            row.Children.Remove(box);
+            shown.Visibility = Visibility.Visible;
+            row.DataContextChanged -= Handed;
         }
-        else if (e.Key == Key.Escape)
+        // The row handed another sensor (scrolled away and reused) while renaming: the rename so far is kept for its own sensor.
+        void Handed(object? s, DependencyPropertyChangedEventArgs a) => Finish(keep: true);
+        box.KeyDown += (_, k) =>
         {
-            box.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            if (k.Key is not (Key.Enter or Key.Escape)) return;
+            k.Handled = true;
+            Finish(keep: k.Key == Key.Enter);
             Keyboard.ClearFocus();
-            e.Handled = true;
+        };
+        box.LostKeyboardFocus += (_, _) => Finish(keep: true);
+        row.DataContextChanged += Handed;
+        shown.Visibility = Visibility.Hidden;
+        row.Children.Add(box);
+        box.Focus();
+        box.CaretIndex = box.Text.Length;
+    }
+
+    // ── Scrolling: the last-minute lines wait until the list stops (1.23.0) ──
+
+    /// <summary>How long after the list last moved its lines are drawn again.</summary>
+    private static readonly TimeSpan ScrollRest = TimeSpan.FromMilliseconds(150);
+    private System.Windows.Threading.DispatcherTimer? _scrollRest;
+
+    /// <summary>
+    /// The list moved: its rows' lines hold (see <see cref="Controls.Sparkline.HoldProperty"/>) until it has been still
+    /// for <see cref="ScrollRest"/>, then each one that missed a reading or came into view is drawn once. Readings keep
+    /// being kept meanwhile. Only a move counts: rows added or a card folded change the list's height, not its place.
+    /// </summary>
+    private void List_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.VerticalChange == 0) return;
+        if (!Controls.Sparkline.GetHold(SensorList)) Controls.Sparkline.SetHold(SensorList, true);
+        if (_scrollRest is null)
+        {
+            _scrollRest = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background) { Interval = ScrollRest };
+            _scrollRest.Tick += (_, _) =>
+            {
+                _scrollRest!.Stop();
+                SensorList.ClearValue(Controls.Sparkline.HoldProperty);
+            };
         }
+        _scrollRest.Stop();
+        _scrollRest.Start();
     }
 }

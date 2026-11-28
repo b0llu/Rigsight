@@ -60,7 +60,14 @@ public sealed record Insight(string Icon, string Text, InsightTone Tone = Insigh
 }
 
 /// <summary>A notification's words: its title (what happened) and the sentence under it (the most useful fact).</summary>
-public sealed record NoticeText(string Title, string Body);
+public sealed record NoticeText(string Title, string Body)
+{
+    /// <summary>
+    /// The one figure the card draws against its usual under the words (1.23.0), for a notice that says one; null for
+    /// the rest. Built with the words, from the same figures.
+    /// </summary>
+    public Notices.NoticeFigure? Figure { get; init; }
+}
 
 /// <summary>A page a line opens: the proof of something that moved, or an event to look at.</summary>
 public enum InsightOpens { None, Usual, Crashes, Temperatures, Fans, Network, Storage, Game, Startup }

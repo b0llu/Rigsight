@@ -82,7 +82,7 @@ internal sealed partial class AgentContext
     /// <summary>An app on Top CPU users or Top memory users, by the name the Processes page gives it.</summary>
     private TileApp AppOf(AppUsage a, string value)
     {
-        var (name, path) = _apps.Describe(a.Exe, a.FirstPid);
+        var (name, path, _) = _apps.Describe(a.Exe, a.FirstPid);
         if (_settings.AppNames.TryGetValue(a.Exe, out var alias)) name = alias;
         return new TileApp(name, path, value);
     }

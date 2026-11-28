@@ -118,7 +118,7 @@ internal sealed partial class AgentContext
 
     /// <summary>A check's candidate, sent as a notice.</summary>
     private void Notify(NoticeCandidate c, string? iconPath = null) =>
-        Notify(new Notice(NoticeLevels.KindOf(c), c.Text.Title, c.Text.Body, iconPath, c.Page, c.Arg, Urgent: c.Level == NoticeLevel.Problem) { Key = c.Key, Value = c.Value });
+        Notify(new Notice(NoticeLevels.KindOf(c), c.Text.Title, c.Text.Body, iconPath, c.Page, c.Arg, Urgent: c.Level == NoticeLevel.Problem) { Key = c.Key, Value = c.Value, Figure = c.Text.Figure });
 
     private (DateTime At, string? Value)? SaidOf(string key)
     {
@@ -248,9 +248,10 @@ internal sealed partial class AgentContext
 
     /// <summary>
     /// The temperature alert's last sentence: the game's usual for that part over the 30 days before today, when there are
-    /// enough days of steady play to say it. Only for one part, the CPU or the GPU.
+    /// enough days of steady play to say it. Only for one part, the CPU or the GPU. With the range itself, for the card's
+    /// figure (1.23.0).
     /// </summary>
-    private string? UsualForAlert(string? exe, IReadOnlyList<string> parts)
+    private (string Words, double Low, double High)? UsualForAlert(string? exe, IReadOnlyList<string> parts)
     {
         if (exe is null || parts.Count != 1 || parts[0] is not ("CPU" or "GPU")) return null;
         try
@@ -259,7 +260,7 @@ internal sealed partial class AgentContext
             var heat = _db.GetHeatDays(TimeUtil.ToUnix(DateTime.Today.AddDays(-30)), TimeUtil.ToUnix(DateTime.Today));
             var range = PcUsual.UsualIn(heat, app.Id, parts[0] == "GPU");
             Log.Write("notice", $"Running hot in {exe}: usual {parts[0]} {(range is { } r ? $"{r.Low:0.0}-{r.High:0.0}" : "not known")}");
-            return range is { } u ? NoticeWords.UsualInGame(u.Low, u.High) : null;
+            return range is { } u ? (NoticeWords.UsualInGame(u.Low, u.High), u.Low, u.High) : null;
         }
         catch (Exception ex) { Log.Error("notice", ex); return null; }
     }

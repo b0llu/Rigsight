@@ -122,7 +122,8 @@ public sealed class FrameSpread
 /// <param name="UsualMs">How long the frames before it took (their middle one).</param>
 /// <param name="Drv">The driver whose long bursts (<see cref="Drivers.DriverRules.LongUs"/> or more) fell inside the frame, most of them, if any (driver activity, issue #15).</param>
 /// <param name="DrvUs">How much of that driver's own time fell inside the frame, µs.</param>
-public sealed record Stutter(long AtMs, double Ms, double UsualMs, string? Drv = null, int DrvUs = 0);
+/// <param name="Snap">What the PC was doing in the seconds around it (1.23.0, see <see cref="StutterSnaps"/>); null before then, or with nothing read near it.</param>
+public sealed record Stutter(long AtMs, double Ms, double UsualMs, string? Drv = null, int DrvUs = 0, StutterSnap? Snap = null);
 
 /// <summary>
 /// Finds stutters in a game's frames as they come: a frame at least 2.5 times as long as the middle of the 30 frames

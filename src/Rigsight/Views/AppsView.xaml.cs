@@ -73,6 +73,15 @@ public partial class AppsView : UserControl
         }
         menu.Items.Add(category);
 
+        // Not a game in RigSight's reading: the person can say it is one (1.23.0, the other way round from Games' Not a game).
+        // It joins the Games page; its history stays where it is.
+        if (!vm.SelectedIsGame)
+        {
+            var game = Item(Lang.T("This is a game"), ""); // game controller
+            game.Click += (_, _) => vm.SelectedCategory = AppCategory.Game;
+            menu.Items.Add(game);
+        }
+
         // Says what picking it does, rather than a tick.
         bool excluded = vm.SelectedExcluded;
         var track = excluded ? Item(Lang.T("Track this app again"), "") : Item(Lang.T("Don't track this app"), ""); // eye / hide

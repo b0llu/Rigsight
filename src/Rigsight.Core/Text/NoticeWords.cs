@@ -193,7 +193,8 @@ public static class NoticeWords
         if (h.RestNow is double rn && h.RestUsual is double ru)
             body += " " + (Math.Abs(rn - ru) < 1.5 ? Lang.T($"With nothing running it sits at its usual {Temp(rn)}.")
                 : rn > ru ? Lang.T($"With nothing running it's only {Diff(rn, ru)} warmer than usual.") : Lang.T($"With nothing running it's only {Diff(rn, ru)} cooler than usual."));
-        return new(Lang.T($"{game} ran {diff} hotter than usual on the {part}"), body);
+        // The card's figure line: the same average against the same usual its words state.
+        return new(Lang.T($"{game} ran {diff} hotter than usual on the {part}"), body) { Figure = Notices.NoticeFigure.Above(h.Now, h.Low, h.High) };
     }
 
     /// <summary>The same, as the last sentence of the game's summary: "The GPU ran 7°C hotter than usual at the same power."</summary>

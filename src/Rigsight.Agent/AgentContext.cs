@@ -600,9 +600,16 @@ internal sealed partial class AgentContext : ApplicationContext
                             catch (Exception ex) { _errors.Failed("drives", ex); }
                         }
 
-                        var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
+                        NoticeText? alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now) is { } said ? new NoticeText(said.Title, said.Body) : null;
                         // A fixed limit says it's hot, not whether that's new: the game's usual says that (from the research, 2026-11-07).
-                        if (alert is { } a && UsualForAlert(_tracker.Activity.Exe, _alerts.LastParts) is { } usual) alert = (a.Title, $"{a.Body} {usual}");
+                        // The card draws the reading against that usual (1.23.0), from the figures the sentence states.
+                        if (alert is { } a && UsualForAlert(_tracker.Activity.Exe, _alerts.LastParts) is { } usual)
+                        {
+                            var figure = _alerts.LastValue is double hotNow ? Rigsight.Core.Notices.NoticeFigure.Above(hotNow, usual.Low, usual.High) : null;
+                            alert = new NoticeText(a.Title, $"{a.Body} {usual.Words}") { Figure = figure };
+                            Log.Write("notice", figure is { } f ? $"Running hot: card figure {f.Value:0.0} against {f.Low:0.0}-{f.High:0.0}"
+                                : $"Running hot: no card figure, expected one reading above its usual, found {(_alerts.LastValue is double lv ? $"{lv:0.0} against {usual.Low:0.0}-{usual.High:0.0}" : "several readings")}");
+                        }
                         PublishToUi(keys, fullscreen, alert);
                         Measure("track+publish", t0);
 
@@ -1484,7 +1491,7 @@ internal sealed partial class AgentContext : ApplicationContext
         _ui.Post(_ => MutateSettings(s => s.Overlay.GameScreen = device), null);
     }
 
-    private void PublishToUi(KeyValues k, bool fullscreen, (string Title, string Body)? alert)
+    private void PublishToUi(KeyValues k, bool fullscreen, NoticeText? alert)
     {
         var settings = _settings;
         // Switched off (the Taskbar page, the tray menu): none shown, the list kept.
@@ -1556,7 +1563,7 @@ internal sealed partial class AgentContext : ApplicationContext
             catch (Exception ex) { _errors.Failed("RivaTuner check", ex); }
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
             if (alert is { } hot)
-                Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
+                Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true) { Figure = hot.Figure });
         }, null);
 
         // The taskbar readings and the widgets, on the UI thread.
@@ -1605,11 +1612,13 @@ internal sealed partial class AgentContext : ApplicationContext
             .Where((a, i) => i < 80 || windows.ContainsKey(a.Exe) || a.Cpu >= 0.5 || a.Disk >= 256 * 1024)
             .Select(a =>
             {
-                var (name, path) = _apps.Describe(a.Exe, a.FirstPid);
+                var (name, path, kind) = _apps.Describe(a.Exe, a.FirstPid);
                 if (_settings.AppNames.TryGetValue(a.Exe, out var alias)) name = alias;
                 return new ProcInfo
                 {
                     Exe = a.Exe, Name = name, Path = path, Count = a.Count,
+                    // The person's choice wins, as everywhere (the Processes page changes it there too).
+                    Category = _settings.AppCategories.TryGetValue(a.Exe, out var chosen) ? chosen : kind,
                     Cpu = Math.Round(a.Cpu, 1), MemMB = Math.Round(a.MemMB, 1), HasWindow = windows.ContainsKey(a.Exe),
                     Disk = Math.Round(a.Disk), Started = a.Created > 0 ? new DateTimeOffset(DateTime.FromFileTimeUtc(a.Created)).ToUnixTimeSeconds() : 0,
                     Critical = markedApps.Contains(a.Exe),
@@ -2322,7 +2331,7 @@ internal sealed partial class AgentContext : ApplicationContext
                 ? new(NoticeKind.Session, sTitle, sBody, activity.Path, "games") : null!,
             "crash" => new(NoticeKind.Crash, Wording.Title(CrashKind.AppCrash, "Dota 2"), CrashNotices.Sample, activity.Path, "crashes"),
             // The notifications round's kinds, each through its real words with made-up figures.
-            _ when NoticePreviews.Of(kind) is { } p => new(p.Kind, p.Text.Title, p.Text.Body, Page: p.Page, Urgent: p.Kind is NoticeKind.FanStopped or NoticeKind.DriveFailing),
+            _ when NoticePreviews.Of(kind) is { } p => new(p.Kind, p.Text.Title, p.Text.Body, Page: p.Page, Urgent: p.Kind is NoticeKind.FanStopped or NoticeKind.DriveFailing) { Figure = p.Text.Figure },
             _ => NoticeWords.Recap(DateTime.Today.AddDays(-1), DateTime.Today, 6 * 3600 + 12 * 60, "Dota 2", 3 * 3600 + 5 * 60, 78, 72) is var (rTitle, rBody)
                 ? new(NoticeKind.Recap, rTitle, rBody, Page: "reports", Arg: "yesterday") : null!,
         };
